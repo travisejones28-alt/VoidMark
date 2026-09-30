@@ -1,0 +1,8 @@
+# VoidMark runtime/generated files
+VoidMark_AutoSync.log
+VoidMark_AutoSyncWatcher.pid
+
+# Common local/editor files
+.DS_Store
+Thumbs.db
+*.tmp
