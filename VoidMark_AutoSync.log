@@ -1,0 +1,98 @@
+﻿[2026-09-28 20:02:37] Last WoW client closed. Waiting 5s for SavedVariables to finish writing.
+[2026-09-28 20:02:42] Starting offline kill merge (last WoW client closed).
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] Scanning: C:\Program Files (x86)\World of Warcraft\_classic_era_\WTF\Account
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] Found 58219513#1: 81 kill rows + 12 legacy floors + 693 DHK rows in TaliaaSpy.lua
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] Found CLATIMER: 6118 kill rows + 12 legacy floors + 634 DHK rows in Spy.lua
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] Found CLATIMER: 7275 kill rows + 34 legacy floors + 703 DHK rows in TaliaaSpy.lua
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] Found CLATIMER: 6118 kill rows + 12 legacy floors + 0 DHK rows in VoidMark.lua
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] Merged total: 7276 kills | same-death duplicates removed: 356 | ID collisions repaired: 244
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] Merged historical floors: 34
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] Merged DHKs: 703 | retransmits removed: 0 | ID collisions repaired: 0
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] Updated 58219513#1\TaliaaSpy.lua  (validated; backup created)
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] Updated CLATIMER\Spy.lua  (validated; backup created)
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] Updated CLATIMER\TaliaaSpy.lua  (validated; backup created)
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] CLATIMER\VoidMark.lua has no DHKHistory target yet; launch that account once with the updated addon, then close WoW and sync again.
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] Updated CLATIMER\VoidMark.lua  (validated; backup created)
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] DONE. Updated 4 account SavedVariables file(s).
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] Launch any account normally. GankRepository will rebuild indexes and load the merged historical floors on login.
+[2026-09-28 20:03:45] SYNC: [VoidMark Sync] The accounts do NOT need to be online together; kills, historical floors, and DHKs are all merged offline.
+[2026-09-28 20:03:45] Offline kill merge complete.
+[2026-09-28 20:05:20] WoW detected. Merge will run after the last client closes.
+[2026-09-28 20:36:41] Last WoW client closed. Waiting 5s for SavedVariables to finish writing.
+[2026-09-28 20:36:46] Starting offline kill merge (last WoW client closed).
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] Scanning: C:\Program Files (x86)\World of Warcraft\_classic_era_\WTF\Account
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] Found 58219513#1: 7357 kill rows + 34 legacy floors + 703 DHK rows in TaliaaSpy.lua
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] Found CLATIMER: 7276 kill rows + 34 legacy floors + 703 DHK rows in Spy.lua
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] Found CLATIMER: 0 kill rows + 43 legacy floors + 761 DHK rows in TaliaaSpy.lua
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] Found CLATIMER: 7276 kill rows + 34 legacy floors + 0 DHK rows in VoidMark.lua
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] Merged total: 7276 kills | same-death duplicates removed: 0 | ID collisions repaired: 0
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] Merged historical floors: 43
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] Merged DHKs: 761 | retransmits removed: 0 | ID collisions repaired: 0
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] Updated 58219513#1\TaliaaSpy.lua  (validated; backup created)
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] Updated CLATIMER\Spy.lua  (validated; backup created)
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] Updated CLATIMER\TaliaaSpy.lua  (validated; backup created)
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] CLATIMER\VoidMark.lua has no DHKHistory target yet; launch that account once with the updated addon, then close WoW and sync again.
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] Updated CLATIMER\VoidMark.lua  (validated; backup created)
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] DONE. Updated 4 account SavedVariables file(s).
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] Launch any account normally. GankRepository will rebuild indexes and load the merged historical floors on login.
+[2026-09-28 20:37:56] SYNC: [VoidMark Sync] The accounts do NOT need to be online together; kills, historical floors, and DHKs are all merged offline.
+[2026-09-28 20:37:56] Offline kill merge complete.
+[2026-09-28 20:38:17] WoW detected. Merge will run after the last client closes.
+[2026-09-29 00:44:01] Last WoW client closed. Waiting 5s for SavedVariables to finish writing.
+[2026-09-29 19:44:43] Starting offline kill merge (last WoW client closed).
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] Scanning: C:\Program Files (x86)\World of Warcraft\_classic_era_\WTF\Account
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] Found 58219513#1: 81 kill rows + 121 legacy floors + 765 DHK rows in TaliaaSpy.lua
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] Found CLATIMER: 7276 kill rows + 43 legacy floors + 761 DHK rows in Spy.lua
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] Found CLATIMER: 7474 kill rows + 126 legacy floors + 792 DHK rows in TaliaaSpy.lua
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] Found CLATIMER: 7276 kill rows + 43 legacy floors + 0 DHK rows in VoidMark.lua
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] Merged total: 7474 kills | same-death duplicates removed: 393 | ID collisions repaired: 152
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] Merged historical floors: 126
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] Merged DHKs: 792 | retransmits removed: 0 | ID collisions repaired: 0
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] Updated 58219513#1\TaliaaSpy.lua  (validated; backup created)
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] Updated CLATIMER\Spy.lua  (validated; backup created)
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] Updated CLATIMER\TaliaaSpy.lua  (validated; backup created)
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] CLATIMER\VoidMark.lua has no DHKHistory target yet; launch that account once with the updated addon, then close WoW and sync again.
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] Updated CLATIMER\VoidMark.lua  (validated; backup created)
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] DONE. Updated 4 account SavedVariables file(s).
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] Launch any account normally. GankRepository will rebuild indexes and load the merged historical floors on login.
+[2026-09-29 19:46:13] SYNC: [VoidMark Sync] The accounts do NOT need to be online together; kills, historical floors, and DHKs are all merged offline.
+[2026-09-29 19:46:13] Offline kill merge complete.
+[2026-09-29 19:46:58] WoW detected. Merge will run after the last client closes.
+[2026-09-30 01:18:20] Last WoW client closed. Waiting 5s for SavedVariables to finish writing.
+[2026-09-30 01:18:25] Starting offline kill merge (last WoW client closed).
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] Scanning: C:\Program Files (x86)\World of Warcraft\_classic_era_\WTF\Account
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] Found 58219513#1: 81 kill rows + 127 legacy floors + 815 DHK rows in TaliaaSpy.lua
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] Found CLATIMER: 7474 kill rows + 126 legacy floors + 792 DHK rows in Spy.lua
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] Found CLATIMER: 7682 kill rows + 154 legacy floors + 823 DHK rows in TaliaaSpy.lua
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] Found CLATIMER: 7474 kill rows + 126 legacy floors + 0 DHK rows in VoidMark.lua
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] Merged total: 7682 kills | same-death duplicates removed: 469 | ID collisions repaired: 228
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] Merged historical floors: 154
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] Merged DHKs: 823 | retransmits removed: 0 | ID collisions repaired: 0
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] Updated 58219513#1\TaliaaSpy.lua  (validated; backup created)
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] Updated CLATIMER\Spy.lua  (validated; backup created)
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] Updated CLATIMER\TaliaaSpy.lua  (validated; backup created)
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] CLATIMER\VoidMark.lua has no DHKHistory target yet; launch that account once with the updated addon, then close WoW and sync again.
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] Updated CLATIMER\VoidMark.lua  (validated; backup created)
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] DONE. Updated 4 account SavedVariables file(s).
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] Launch any account normally. GankRepository will rebuild indexes and load the merged historical floors on login.
+[2026-09-30 01:19:34] SYNC: [VoidMark Sync] The accounts do NOT need to be online together; kills, historical floors, and DHKs are all merged offline.
+[2026-09-30 01:19:34] Offline kill merge complete.
+[2026-09-30 18:37:34] Watcher started. PID=21844 Poll=5s Settle=5s.
+[2026-09-30 18:37:36] Starting offline kill merge (watcher startup).
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] Scanning: C:\Program Files (x86)\World of Warcraft\_classic_era_\WTF\Account
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] Found 58219513#1: 7763 kill rows + 154 legacy floors + 823 DHK rows in TaliaaSpy.lua
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] Found CLATIMER: 7682 kill rows + 154 legacy floors + 823 DHK rows in Spy.lua
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] Found CLATIMER: 7682 kill rows + 154 legacy floors + 823 DHK rows in TaliaaSpy.lua
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] Found CLATIMER: 7682 kill rows + 154 legacy floors + 0 DHK rows in VoidMark.lua
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] Merged total: 7682 kills | same-death duplicates removed: 0 | ID collisions repaired: 0
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] Merged historical floors: 154
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] Merged DHKs: 823 | retransmits removed: 0 | ID collisions repaired: 0
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] Updated 58219513#1\TaliaaSpy.lua  (validated; backup created)
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] Updated CLATIMER\Spy.lua  (validated; backup created)
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] Updated CLATIMER\TaliaaSpy.lua  (validated; backup created)
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] CLATIMER\VoidMark.lua has no DHKHistory target yet; launch that account once with the updated addon, then close WoW and sync again.
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] Updated CLATIMER\VoidMark.lua  (validated; backup created)
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] DONE. Updated 4 account SavedVariables file(s).
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] Launch any account normally. GankRepository will rebuild indexes and load the merged historical floors on login.
+[2026-09-30 18:38:57] SYNC: [VoidMark Sync] The accounts do NOT need to be online together; kills, historical floors, and DHKs are all merged offline.
+[2026-09-30 18:38:57] Offline kill merge complete.
