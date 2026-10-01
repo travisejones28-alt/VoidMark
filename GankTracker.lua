@@ -3825,6 +3825,30 @@ function GT:IsUnitCurrentlyFeigningName(name)
     return IsUnitCurrentlyFeigningName(name)
 end
 
+local function FeignDebugValue(v)
+    if v == nil then return "nil" end
+    return tostring(v)
+end
+
+local function FeignDiag(subEvent, guid, name, p1, p2, p3, p4, p5)
+    if not name or not guid or not IsPlayerGUID(guid) then return end
+    local base = tostring(name):match("^([^%-]+)") or tostring(name)
+    local playerData = SpyPerCharDB and SpyPerCharDB.PlayerData and SpyPerCharDB.PlayerData[name]
+    local class = playerData and playerData.Class
+    if not class and GetPlayerInfoByGUID then
+        local _, classFile = GetPlayerInfoByGUID(guid)
+        class = classFile
+    end
+    if tostring(class or ""):upper() ~= "HUNTER" then return end
+    if subEvent ~= "PARTY_KILL" and subEvent ~= "UNIT_DIED" and subEvent ~= "SPELL_INSTAKILL"
+        and subEvent ~= "SPELL_CAST_SUCCESS" and subEvent ~= "SPELL_AURA_APPLIED" then return end
+    Print(string.format("FEIGNDBG %s %s p1=%s p2=%s p3=%s p4=%s p5=%s live=%s",
+        tostring(subEvent), base,
+        FeignDebugValue(p1), FeignDebugValue(p2), FeignDebugValue(p3),
+        FeignDebugValue(p4), FeignDebugValue(p5),
+        tostring(IsUnitCurrentlyFeigningName(base))))
+end
+
 local function MarkHunterFeign(guid, name)
     local now = GetTime()
     if guid then
@@ -3993,6 +4017,8 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
         local _, subEvent, _, sourceGUID, sourceName, sourceFlags, _, destGUID, destName, destFlags, _, payload1, payload2, payload3, payload4, payload5 =
             CombatLogGetCurrentEventInfo()
+
+        FeignDiag(subEvent, destGUID or sourceGUID, destName or sourceName, payload1, payload2, payload3, payload4, payload5)
 
         -- Feign Death may have no destination on SPELL_CAST_SUCCESS, so use the
         -- source hunter there and the destination on AURA_APPLIED. This must run
