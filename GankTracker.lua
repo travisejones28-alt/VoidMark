@@ -2725,7 +2725,9 @@ function GT:RecordKill(playerName, playerGUID)
     -- assist fallback) eventually passes through RecordKill(), so also ask the
     -- live unit state here. This covers Classic clients that do not expose a
     -- usable Feign flag/spell event before kill credit is emitted.
-    if IsUnitCurrentlyFeigningName and IsUnitCurrentlyFeigningName(playerName) then
+    local confirmedAt = playerGUID and tonumber(recentConfirmedPlayerKills[playerGUID]) or 0
+    local confirmedRealDeath = confirmedAt > 0 and (GetTime() - confirmedAt) <= 2.0
+    if not confirmedRealDeath and IsUnitCurrentlyFeigningName and IsUnitCurrentlyFeigningName(playerName) then
         MarkHunterFeign(playerGUID, playerName)
         if playerGUID then recentOutgoingVictims[playerGUID] = nil end
         return
@@ -2733,8 +2735,9 @@ function GT:RecordKill(playerName, playerGUID)
 
     -- Feign Death can generate UNIT_DIED-like traffic in Classic. Suppress it
     -- centrally so Spy.lua, PARTY_KILL/UNIT_DIED fallbacks, and other callers
-    -- cannot accidentally turn a feign into a real gank.
-    if GT:IsRecentFeign(playerName, playerGUID) then
+    -- cannot accidentally turn a feign into a real gank. Authoritative PARTY_KILL
+    -- credit overrides stale Feign state from the same death.
+    if not confirmedRealDeath and GT:IsRecentFeign(playerName, playerGUID) then
         return
     end
 
@@ -3956,6 +3959,15 @@ local function ClearHunterFeign(guid, name)
     end
 end
 
+local function ConfirmHunterRealDeath(guid, name)
+    if not guid then return end
+    recentConfirmedPlayerKills[guid] = GetTime()
+    -- A genuine kill can race with UNIT_DIED-based Feign detection, especially
+    -- when the Hunter dies at range to a DoT. Real kill credit wins: remove any
+    -- stale Feign state/popup so the following UNIT_DIED cannot show FEIGN.
+    ClearHunterFeign(guid, name)
+end
+
 function GT:HandleHunterFeign(playerGUID, playerName)
     MarkHunterFeign(playerGUID, playerName)
 end
@@ -4232,13 +4244,7 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
             -- immediately before UNIT_DIED, while Feign produces UNIT_DIED alone.
             -- Remember the authoritative real-kill signal so the following
             -- UNIT_DIED is not mistaken for Feign.
-            recentConfirmedPlayerKills[destGUID] = GetTime()
-
-            if GT:IsRecentFeign(destName, destGUID) or IsUnitCurrentlyFeigningName(destName) then
-                MarkHunterFeign(destGUID, destName)
-                recentOutgoingVictims[destGUID] = nil
-                return
-            end
+            ConfirmHunterRealDeath(destGUID, destName)
             GT:RecordKill(destName, destGUID)
             recentOutgoingVictims[destGUID] = nil
             return
