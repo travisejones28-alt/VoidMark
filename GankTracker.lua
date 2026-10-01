@@ -2789,7 +2789,7 @@ function GT:RecordKill(playerName, playerGUID)
     -- because Classic can emit UNIT_DIED for Feign after an earlier kill-credit
     -- path. This prevents fake deaths from firing Fatality/multikill audio.
     if VoidMarkKillEffects and VoidMarkKillEffects.OnKill then
-        if IsKnownHunter(playerName, playerGUID) and C_Timer and C_Timer.After then
+        if GT:IsKnownHunter(playerName, playerGUID) and C_Timer and C_Timer.After then
             local effectName, effectGUID, effectStreak = playerName, playerGUID, GT.currentStreak
             local confirmedAt = effectGUID and tonumber(recentConfirmedPlayerKills[effectGUID]) or 0
             if confirmedAt > 0 and (GetTime() - confirmedAt) <= 2.0 then
@@ -3866,6 +3866,7 @@ IsKnownHunter = function(name, guid)
     end
     return tostring(class or ""):upper() == "HUNTER"
 end
+GT.IsKnownHunter = IsKnownHunter
 
 local function MarkHunterFeign(guid, name)
     -- If a kill sound raced ahead of Classic's Feign classification, stop it
