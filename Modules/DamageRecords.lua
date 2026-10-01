@@ -11,7 +11,11 @@ local function DB()
         records = {},
     }
     local db = SpyDB.VoidMarkDamageRecords
-    if db.partyAnnounce == nil then db.partyAnnounce = true end
+    -- Migrate the temporary YELL-era setting once, then use only Party.
+    if db.partyAnnounce == nil then
+        db.partyAnnounce = true
+    end
+    db.yellAnnounce = nil
     db.records = db.records or {}
     return db
 end
@@ -161,11 +165,11 @@ local function SaveRecord(kind, spellID, spellName, amount, critical, destGUID, 
         for k, v in pairs(record) do db.overall[k] = v end
     end
 
-    -- Party announce is only used for an actual party. Solo and raid both
-    -- receive the private VoidMark notification instead.
-    local inRaid = IsInRaid and IsInRaid()
-    local inGroup = IsInGroup and IsInGroup()
-    if db.partyAnnounce and inGroup and not inRaid and SendChatMessage then
+    -- Party is automatic only when the player is in a normal party.
+    -- Solo and raid always use the private VoidMark notification.
+    local inRaid = IsInRaid and IsInRaid() or false
+    local inParty = IsInGroup and IsInGroup() or false
+    if db.partyAnnounce and inParty and not inRaid and SendChatMessage then
         local prefix = record.critical and "NEW HIGH CRIT!" or "NEW HIGH HIT!"
         SendChatMessage(prefix .. " " .. AbilityLabel(record) .. " - "
             .. tostring(record.amount) .. " vs " .. ShortTarget(record.targetName), "PARTY")
@@ -382,7 +386,6 @@ StaticPopupDialogs["VOIDMARK_RESET_DAMAGE_RECORDS"] = {
             UIDropDownMenu_SetText(frame.Dropdown, "Highest Damage Ever")
         end
         if banner then
-            banner._yellMessage = nil
             banner:Hide()
         end
         DR:Refresh()
