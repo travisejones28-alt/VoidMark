@@ -2521,9 +2521,13 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 		-- If a hostile player dies while we have an active Taliaa threat fight
 		-- with them, count the gank even when somebody else got the killing blow.
 		if event == "UNIT_DIED" and dstName and dstGUID then
-			-- UNIT_DIED arg13 is unconsciousOnDeath. Hunter Feign Death uses
-			-- this flag and must never be counted as a real player death/kill.
-			if arg13 == 1 or arg13 == true or arg13 == "1" then
+			-- Hunter Feign can be identified by the unconsciousOnDeath flag when
+			-- present, or by the live-unit fallback when the client omits it.
+			local feignDetected = (arg13 == 1 or arg13 == true or arg13 == "1")
+			if not feignDetected and TaliaaGankTracker and TaliaaGankTracker.IsUnitCurrentlyFeigningName then
+				feignDetected = TaliaaGankTracker:IsUnitCurrentlyFeigningName(dstName)
+			end
+			if feignDetected then
 				if TaliaaGankTracker and TaliaaGankTracker.HandleHunterFeign then
 					TaliaaGankTracker:HandleHunterFeign(dstGUID, dstName)
 				end
@@ -2568,8 +2572,12 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 		-- Feign Death is reported as an unconscious kill-credit event.
 		-- Stop it before the normal PARTY_KILL path can record a real gank.
 		-- arg13 is unconsciousOnDeath for PARTY_KILL.
-		if event == "PARTY_KILL" and dstName and dstGUID
-			and (arg13 == 1 or arg13 == true or arg13 == "1") then
+		if event == "PARTY_KILL" and dstName and dstGUID then
+			local feignDetected = (arg13 == 1 or arg13 == true or arg13 == "1")
+			if not feignDetected and TaliaaGankTracker and TaliaaGankTracker.IsUnitCurrentlyFeigningName then
+				feignDetected = TaliaaGankTracker:IsUnitCurrentlyFeigningName(dstName)
+			end
+			if feignDetected then
 			if TaliaaGankTracker and TaliaaGankTracker.HandleHunterFeign then
 				TaliaaGankTracker:HandleHunterFeign(dstGUID, dstName)
 			end
