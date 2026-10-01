@@ -3974,6 +3974,12 @@ local function ConfirmHunterRealDeath(guid, name)
     ClearHunterFeign(guid, name)
 end
 
+function GT:ConfirmHunterRealDeath(playerGUID, playerName)
+    if not IsKnownHunter(playerName, playerGUID) then return false end
+    ConfirmHunterRealDeath(playerGUID, playerName)
+    return true
+end
+
 function GT:HandleHunterFeign(playerGUID, playerName)
     MarkHunterFeign(playerGUID, playerName)
 end
