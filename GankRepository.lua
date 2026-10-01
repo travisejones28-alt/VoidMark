@@ -812,16 +812,60 @@ local function IndexedVictimEventCount(history, name, guid)
     return count
 end
 
+-- Recover a pre-rename lifetime counter without requiring the old TaliaaSpy
+-- key spelling to exactly match the current VoidMark spelling.  The offline
+-- merger deliberately preserves the original PlayerData keys, which can differ
+-- by realm suffix, case, or an accented character.  Only accept a folded alias
+-- when it is unique so two genuinely different players are never combined.
+local function LegacySpyLifetimeWins(name)
+    local legacy = SpyDB and SpyDB.VoidMarkLegacyPlayers
+    if type(legacy) ~= "table" then return 0, nil, "none" end
+
+    local raw = tostring(name or "")
+    local base = BasePlayerNameText(raw)
+
+    local row = legacy[raw] or legacy[base]
+    if type(row) == "table" then
+        return tonumber(row.wins) or 0, raw, "direct"
+    end
+
+    local wantFull = ExactPlayerNameKey(raw)
+    local wantBase = ExactPlayerNameKey(base)
+    local wantCanonical = CanonicalPlayerNameKey(raw)
+    local exactWins, exactKey, exactMatches = 0, nil, 0
+    local canonicalWins, canonicalKey, canonicalMatches = 0, nil, 0
+
+    for key, candidate in pairs(legacy) do
+        if type(candidate) == "table" then
+            local keyFull = ExactPlayerNameKey(key)
+            local keyBase = ExactPlayerNameKey(BasePlayerNameText(key))
+            if keyFull == wantFull or keyBase == wantBase then
+                exactMatches = exactMatches + 1
+                exactWins = math.max(exactWins, tonumber(candidate.wins) or 0)
+                exactKey = key
+            elseif wantCanonical ~= "" and CanonicalPlayerNameKey(key) == wantCanonical then
+                canonicalMatches = canonicalMatches + 1
+                canonicalWins = math.max(canonicalWins, tonumber(candidate.wins) or 0)
+                canonicalKey = key
+            end
+        end
+    end
+
+    if exactMatches == 1 then return exactWins, exactKey, "legacy-exact" end
+    if exactMatches == 0 and canonicalMatches == 1 then
+        return canonicalWins, canonicalKey, "legacy-accent"
+    end
+    return 0, nil, (exactMatches > 1 or canonicalMatches > 1) and "ambiguous" or "none"
+end
+
 local function SpyLifetimeWins(name, guid)
     local data, matchedKey, method = FindSpyPlayerData(name, guid)
     local wins = type(data) == "table" and (tonumber(data.wins) or 0) or 0
-    local legacy = SpyDB and SpyDB.VoidMarkLegacyPlayers
-    if type(legacy) == "table" then
-        local raw = tostring(name or "")
-        local row = legacy[raw] or legacy[BasePlayerNameText(raw)]
-        if type(row) == "table" then
-            wins = math.max(wins, tonumber(row.wins) or 0)
-        end
+    local legacyWins, legacyKey, legacyMethod = LegacySpyLifetimeWins(name)
+    if legacyWins > wins then
+        wins = legacyWins
+        matchedKey = legacyKey or matchedKey
+        method = legacyMethod or method
     end
     return wins, matchedKey, method
 end
@@ -2208,12 +2252,7 @@ function Repo:GetHistoricalStats(playerName, playerGUID)
         end
     end
 
-    local legacyWins = 0
-    local legacy = SpyDB and SpyDB.VoidMarkLegacyPlayers
-    if type(legacy) == "table" then
-        local row = legacy[name] or legacy[BasePlayerNameText(name)]
-        if type(row) == "table" then legacyWins = tonumber(row.wins) or 0 end
-    end
+    local legacyWins = select(1, LegacySpyLifetimeWins(name))
     return math.max(0, eventCount + gap, legacyWins), 0
 end
 
@@ -2359,12 +2398,25 @@ function Repo:GetStatisticsSnapshot()
         end
     end
 
+    -- Pre-rename PlayerData may contain players that have no timestamped
+    -- repository row at all. Make those identities visible too; touch() folds a
+    -- unique base-name alias onto the existing row instead of duplicating it.
+    local legacyPlayers = SpyDB and SpyDB.VoidMarkLegacyPlayers
+    if type(legacyPlayers) == "table" then
+        for legacyName, legacyData in pairs(legacyPlayers) do
+            if type(legacyData) == "table" and (tonumber(legacyData.wins) or 0) > 0 then
+                local row = touch(legacyName, "")
+                row.legacyWins = math.max(tonumber(row.legacyWins) or 0, tonumber(legacyData.wins) or 0)
+            end
+        end
+    end
+
     -- Resolve lifetime wins with the same deep resolver used by the rest of
     -- VoidMark. Keep Spy losses because the kill repository does not reconstruct
     -- deaths that were never recorded.
     for _, row in ipairs(out) do
         local total = HistoricalCountWithFloor(history, row.name, row.guid, true, true)
-        row.wins = math.max(tonumber(total) or 0, tonumber(row.spyWins) or 0)
+        row.wins = math.max(tonumber(total) or 0, tonumber(row.spyWins) or 0, tonumber(row.legacyWins) or 0)
         row.loses = tonumber(row.loses) or 0
         row.time = tonumber(row.time) or 0
     end
