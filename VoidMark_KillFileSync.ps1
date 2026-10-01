@@ -935,8 +935,12 @@ try {
             }
 
             $existing = $floorByIdentity[$f.Identity]
-            if ([double]$f.Gap -gt [double]$existing.Gap -or
-                (([double]$f.Gap -eq [double]$existing.Gap) -and ([double]$f.CapturedAt -gt [double]$existing.CapturedAt))) {
+            $fGap = [double](Get-ObjectNumber -Object $f -Property 'Gap' -Default 0)
+            $existingGap = [double](Get-ObjectNumber -Object $existing -Property 'Gap' -Default 0)
+            $fCaptured = [double](Get-ObjectNumber -Object $f -Property 'CapturedAt' -Default 0)
+            $existingCaptured = [double](Get-ObjectNumber -Object $existing -Property 'CapturedAt' -Default 0)
+            if ($fGap -gt $existingGap -or
+                (($fGap -eq $existingGap) -and ($fCaptured -gt $existingCaptured))) {
                 $floorByIdentity[$f.Identity] = $f
             }
         }
@@ -965,8 +969,12 @@ try {
         $matches = @($guidFloorsByName[$n])
         if ($matches.Count -eq 1) {
             $g = $matches[0]
-            if ([double]$f.Gap -gt [double]$g.Gap) {
-                $g.Gap = [double]$f.Gap
+            $fGap = [double](Get-ObjectNumber -Object $f -Property 'Gap' -Default 0)
+            $gGap = [double](Get-ObjectNumber -Object $g -Property 'Gap' -Default 0)
+            if ($fGap -gt $gGap) {
+                # Some older parsed floor objects do not expose a writable Gap
+                # property. Add/replace it explicitly instead of aborting sync.
+                $g | Add-Member -NotePropertyName Gap -NotePropertyValue $fGap -Force
             }
             $floorByIdentity.Remove($identity)
         }
