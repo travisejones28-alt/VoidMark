@@ -4,23 +4,39 @@ local ROOT = "Interface\\AddOns\\VoidMark\\Media\\Panic\\"
 local STYLE_SPEC = {
     skull = {
         texture = ROOT .. "panic_voidskull.tga",
-        frameW = 100, frameH = 126,
-        x = 0, y = -18, width = 52, size = 13,
+        frameW = 116, frameH = 142,
+        artW = 116, artH = 142,
+        text = "stack",
+        textX = 0, textY = -18,
+        textW = 68,
+        fontSize = 15,
     },
     diamond = {
         texture = ROOT .. "panic_diamond.tga",
-        frameW = 96, frameH = 96,
-        x = 0, y = -8, width = 58, size = 13,
+        frameW = 108, frameH = 108,
+        artW = 108, artH = 108,
+        text = "stack",
+        textX = 0, textY = 2,
+        textW = 74,
+        fontSize = 15,
     },
     ring = {
         texture = ROOT .. "panic_ring.tga",
-        frameW = 96, frameH = 96,
-        x = 0, y = -2, width = 58, size = 13,
+        frameW = 116, frameH = 116,
+        artW = 116, artH = 116,
+        text = "stack",
+        textX = 0, textY = 2,
+        textW = 76,
+        fontSize = 15,
     },
     banner = {
         texture = ROOT .. "panic_banner.tga",
-        frameW = 214, frameH = 72,
-        x = 39, y = 0, width = 132, size = 13,
+        frameW = 220, frameH = 74,
+        artW = 220, artH = 74,
+        text = "banner",
+        textX = 34, textY = 0,
+        textW = 152,
+        fontSize = 14,
     },
 }
 
@@ -67,16 +83,37 @@ end
 local function EnsureArt(button)
     if button.PanicArt then return end
 
-    button.PanicArt = button:CreateTexture(nil, "BACKGROUND", nil, -6)
-    button.PanicArt:SetAllPoints(button)
-
-    button.PanicPulse = button:CreateTexture(nil, "ARTWORK", nil, -1)
-    button.PanicPulse:SetAllPoints(button)
+    button.PanicArt = button:CreateTexture(nil, "BACKGROUND", nil, -8)
+    button.PanicPulse = button:CreateTexture(nil, "ARTWORK", nil, -7)
     button.PanicPulse:SetBlendMode("ADD")
     button.PanicPulse:SetAlpha(0)
 
     if button.Icon then button.Icon:Hide() end
     if button.Accent then button.Accent:Hide() end
+    if button.StyleDiamond then button.StyleDiamond:Hide() end
+    if button.StyleRing then button.StyleRing:Hide() end
+    if button.StyleRingGlow then button.StyleRingGlow:Hide() end
+    if button.BannerLeft then button.BannerLeft:Hide() end
+    if button.BannerRight then button.BannerRight:Hide() end
+    if button.VoidGlow then button.VoidGlow:Hide() end
+end
+
+local function ApplyVisualReset(pf, button)
+    pf:SetBackdropColor(0, 0, 0, 0)
+    pf:SetBackdropBorderColor(0, 0, 0, 0)
+
+    button:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8" })
+    button:SetBackdropColor(0, 0, 0, 0)
+    button:SetBackdropBorderColor(0, 0, 0, 0)
+
+    if button.Icon then button.Icon:Hide(); button.Icon:SetAlpha(0) end
+    if button.Accent then button.Accent:Hide(); button.Accent:SetAlpha(0) end
+    if button.StyleDiamond then button.StyleDiamond:Hide(); button.StyleDiamond:SetAlpha(0) end
+    if button.StyleRing then button.StyleRing:Hide(); button.StyleRing:SetAlpha(0) end
+    if button.StyleRingGlow then button.StyleRingGlow:Hide(); button.StyleRingGlow:SetAlpha(0) end
+    if button.BannerLeft then button.BannerLeft:Hide(); button.BannerLeft:SetAlpha(0) end
+    if button.BannerRight then button.BannerRight:Hide(); button.BannerRight:SetAlpha(0) end
+    if button.VoidGlow then button.VoidGlow:Hide(); button.VoidGlow:SetAlpha(0) end
 end
 
 local function ApplyStyle(force)
@@ -86,48 +123,54 @@ local function ApplyStyle(force)
 
     local style = CurrentStyle()
     local spec = STYLE_SPEC[style]
-    if not force and lastStyle == style then return end
-    lastStyle = style
 
     pf:SetSize(spec.frameW, spec.frameH)
     button:ClearAllPoints()
     button:SetPoint("TOPLEFT", pf, "TOPLEFT", 0, 0)
     button:SetPoint("BOTTOMRIGHT", pf, "BOTTOMRIGHT", 0, 0)
 
-    button:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8" })
-    button:SetBackdropColor(0, 0, 0, 0)
-    button:SetBackdropBorderColor(0, 0, 0, 0)
+    ApplyVisualReset(pf, button)
 
-    button.PanicArt:SetTexture(spec.texture)
-    button.PanicArt:SetAllPoints(button)
-    button.PanicPulse:SetTexture(spec.texture)
-    button.PanicPulse:SetAllPoints(button)
+    if force or lastStyle ~= style then
+        lastStyle = style
 
-    if button.Icon then button.Icon:Hide() end
-    if button.Accent then button.Accent:Hide() end
+        button.PanicArt:SetTexture(spec.texture)
+        button.PanicArt:ClearAllPoints()
+        button.PanicArt:SetPoint("CENTER", button, "CENTER", 0, 0)
+        button.PanicArt:SetSize(spec.artW, spec.artH)
 
-    label:ClearAllPoints()
-    label:SetPoint("CENTER", button, "CENTER", spec.x, spec.y)
-    label:SetWidth(spec.width)
-    label:SetJustifyH("CENTER")
-    label:SetJustifyV("MIDDLE")
-    label:SetWordWrap(false)
-    label:SetFont(FONT, spec.size, "OUTLINE")
-    label:SetShadowOffset(1, -1)
-    label:SetShadowColor(0, 0, 0, 1)
+        button.PanicPulse:SetTexture(spec.texture)
+        button.PanicPulse:ClearAllPoints()
+        button.PanicPulse:SetPoint("CENTER", button, "CENTER", 0, 0)
+        button.PanicPulse:SetSize(spec.artW, spec.artH)
+
+        label:ClearAllPoints()
+        label:SetPoint("CENTER", button, "CENTER", spec.textX, spec.textY)
+        label:SetWidth(spec.textW)
+        label:SetJustifyH("CENTER")
+        label:SetJustifyV("MIDDLE")
+        label:SetWordWrap(true)
+        if label.SetNonSpaceWrap then label:SetNonSpaceWrap(false) end
+        label:SetFont(FONT, spec.fontSize, "OUTLINE")
+        label:SetShadowOffset(1, -1)
+        label:SetShadowColor(0, 0, 0, 1)
+    end
 end
 
 local function UpdateDisplay(force)
-    local _, _, button, label = GetObjects()
+    local _, pf, button, label = GetObjects()
     if not label then return end
 
     ApplyStyle(force)
+    ApplyVisualReset(pf, button)
+
     local style = lastStyle or CurrentStyle()
+    local spec = STYLE_SPEC[style]
     local count = ThreatCount()
 
     local text
-    if style == "banner" then
-        text = string.format("PANIC   %d THREAT%s", count, count == 1 and "" or "S")
+    if spec.text == "banner" then
+        text = string.format("PANIC  %d THREAT%s", count, count == 1 and "" or "S")
     else
         text = string.format("PANIC\n%d", count)
     end
@@ -141,18 +184,18 @@ local function UpdateDisplay(force)
     local r, g, b = ThreatColor(count)
     label:SetTextColor(r, g, b, 1)
 
-    if button.PanicPulse then
-        button.PanicPulse:SetVertexColor(r, g, b, 1)
-        local alpha = 0.08
-        if count >= 6 then
-            alpha = 0.28
-        elseif count >= 3 then
-            alpha = 0.20
-        elseif count >= 1 then
-            alpha = 0.12
-        end
-        button.PanicPulse:SetAlpha(alpha)
+    button.PanicArt:SetVertexColor(1, 1, 1, 1)
+    button.PanicPulse:SetVertexColor(r, g, b, 1)
+
+    local alpha = 0.08
+    if count >= 6 then
+        alpha = 0.30
+    elseif count >= 3 then
+        alpha = 0.22
+    elseif count >= 1 then
+        alpha = 0.14
     end
+    button.PanicPulse:SetAlpha(alpha)
 end
 
 local driver = CreateFrame("Frame")
