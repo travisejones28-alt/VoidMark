@@ -2521,6 +2521,16 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 		-- If a hostile player dies while we have an active Taliaa threat fight
 		-- with them, count the gank even when somebody else got the killing blow.
 		if event == "UNIT_DIED" and dstName and dstGUID then
+			-- UNIT_DIED arg13 is unconsciousOnDeath. Hunter Feign Death uses
+			-- this flag and must never be counted as a real player death/kill.
+			if arg13 == 1 or arg13 == true or arg13 == "1" then
+				if TaliaaGankTracker and TaliaaGankTracker.HandleHunterFeign then
+					TaliaaGankTracker:HandleHunterFeign(dstGUID, dstName)
+				end
+				Spy.GankRecentDamage[dstName] = nil
+				return
+			end
+
 			-- UNIT_DIED / PARTY_KILL flags are not always identical in Classic.
 			-- GUID is the reliable player test; Spy's database confirms enemy status.
 			local isPlayerVictim = strsub(dstGUID, 1, 6) == "Player"
