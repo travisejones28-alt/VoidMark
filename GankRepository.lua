@@ -814,8 +814,16 @@ end
 
 local function SpyLifetimeWins(name, guid)
     local data, matchedKey, method = FindSpyPlayerData(name, guid)
-    return type(data) == "table" and (tonumber(data.wins) or 0) or 0,
-           matchedKey, method
+    local wins = type(data) == "table" and (tonumber(data.wins) or 0) or 0
+    local legacy = SpyDB and SpyDB.VoidMarkLegacyPlayers
+    if type(legacy) == "table" then
+        local raw = tostring(name or "")
+        local row = legacy[raw] or legacy[BasePlayerNameText(raw)]
+        if type(row) == "table" then
+            wins = math.max(wins, tonumber(row.wins) or 0)
+        end
+    end
+    return wins, matchedKey, method
 end
 
 -- Read-only Spy identity index for the combat hot path. Built outside combat and
@@ -2200,7 +2208,13 @@ function Repo:GetHistoricalStats(playerName, playerGUID)
         end
     end
 
-    return math.max(0, eventCount + gap), 0
+    local legacyWins = 0
+    local legacy = SpyDB and SpyDB.VoidMarkLegacyPlayers
+    if type(legacy) == "table" then
+        local row = legacy[name] or legacy[BasePlayerNameText(name)]
+        if type(row) == "table" then legacyWins = tonumber(row.wins) or 0 end
+    end
+    return math.max(0, eventCount + gap, legacyWins), 0
 end
 
 function Repo:GetRawEventCount()
