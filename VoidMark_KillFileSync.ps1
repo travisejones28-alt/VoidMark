@@ -17,6 +17,22 @@ function Write-Bad([string]$Text) {
     Write-Host "[VoidMark Sync] $Text" -ForegroundColor Red
 }
 
+# Read an optional numeric property from parsed legacy objects without relying
+# on strict-mode property access. Older floor formats legitimately omit fields.
+function Get-ObjectNumber {
+    param(
+        [object]$Object,
+        [string]$Property,
+        [double]$Default = 0
+    )
+    if ($null -eq $Object) { return $Default }
+    $prop = $Object.PSObject.Properties[$Property]
+    if ($null -eq $prop -or $null -eq $prop.Value) { return $Default }
+    $n = 0.0
+    if ([double]::TryParse([string]$prop.Value, [ref]$n)) { return $n }
+    return $Default
+}
+
 function Find-AccountRoot {
     param([string]$Requested)
 
