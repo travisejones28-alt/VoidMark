@@ -7,11 +7,11 @@ local function DB()
     SpyDB = SpyDB or {}
     SpyDB.VoidMarkDamageRecords = SpyDB.VoidMarkDamageRecords or {
         version = 1,
-        partyAnnounce = true,
+        yellAnnounce = true,
         records = {},
     }
     local db = SpyDB.VoidMarkDamageRecords
-    if db.partyAnnounce == nil then db.partyAnnounce = true end
+    if db.yellAnnounce == nil then db.yellAnnounce = true end
     db.records = db.records or {}
     return db
 end
@@ -80,16 +80,13 @@ local function SelfNotice(record)
     )
 end
 
-local function PartyNotice(record)
+local function YellNotice(record)
     local db = DB()
-    if not db.partyAnnounce then return end
-    -- This option is deliberately party-only. Do not turn it into raid spam.
-    if not IsInGroup or not IsInGroup() or (IsInRaid and IsInRaid()) then return end
-
+    if not db.yellAnnounce then return end
     local prefix = record.critical and "NEW HIGH CRIT!" or "NEW HIGH HIT!"
     local message = prefix .. " " .. AbilityLabel(record) .. " - "
         .. tostring(record.amount) .. " vs " .. ShortTarget(record.targetName)
-    if SendChatMessage then SendChatMessage(message, "PARTY") end
+    if SendChatMessage then SendChatMessage(message, "YELL") end
 end
 
 local banner
@@ -176,9 +173,14 @@ local function SaveRecord(kind, spellID, spellName, amount, critical, destGUID, 
         for k, v in pairs(record) do db.overall[k] = v end
     end
 
-    SelfNotice(record)
+    -- YELL replaces the private chat line when enabled. The screen banner
+    -- remains in either mode.
+    if db.yellAnnounce then
+        YellNotice(record)
+    else
+        SelfNotice(record)
+    end
     ShowBanner(record)
-    PartyNotice(record)
     if DR.Refresh then DR:Refresh() end
 end
 
@@ -233,7 +235,7 @@ function DR:Refresh()
     if not frame then return end
     local db = DB()
     local r = SelectedRecord()
-    frame.PartyButton.Text:SetText(db.partyAnnounce and "PARTY ANNOUNCE: ON" or "PARTY ANNOUNCE: OFF")
+    frame.PartyButton.Text:SetText(db.yellAnnounce and "YELL ANNOUNCE: ON" or "YELL ANNOUNCE: OFF")
     -- A previously selected spell can disappear only after manual SV editing.
     -- Fall back cleanly instead of leaving the panel blank.
     if selectedKey ~= "__OVERALL" and not db.records[selectedKey] then
@@ -349,7 +351,7 @@ local function BuildUI()
     frame.PartyButton.Text:SetAllPoints()
     frame.PartyButton:SetScript("OnClick", function()
         local db = DB()
-        db.partyAnnounce = not db.partyAnnounce
+        db.yellAnnounce = not db.yellAnnounce
         DR:Refresh()
     end)
 
