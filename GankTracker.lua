@@ -59,6 +59,14 @@ local function RecordHunterPetKill(petName, petGUID)
     db.events = db.events or {}
     local stamp = (GetServerTime and GetServerTime()) or time()
     db.events[#db.events + 1] = { t = tonumber(stamp) or time(), name = name, guid = petGUID }
+
+    -- Today/Week only need recent timestamped events. Keep a bounded window so
+    -- the pet tracker cannot grow indefinitely while lifetime stays in db.total.
+    local cutoff = (tonumber(stamp) or time()) - (15 * 86400)
+    while #db.events > 0 and (tonumber(db.events[1] and db.events[1].t) or 0) < cutoff do
+        table.remove(db.events, 1)
+    end
+
     GT._displayRefreshPending = true
     return true
 end
@@ -526,25 +534,16 @@ end
 local function HunterPetKillWeekly()
     local now = DailyNow()
     local weekStart = WeeklyResetStart(now)
+
+    -- Weekly is strictly timestamp-based. Older lifetime-only pet records cannot
+    -- be assigned to a week without inventing a date. Lifetime remains intact in
+    -- db.total, while current Today/Week counts use only known timestamps.
     local db = EnsureHunterPetStats()
+    db.legacyWeeklyCarry = nil
+    db.legacyWeeklyCarryWeekStart = nil
+    db.legacyWeeklyMigrationDone = true
 
-    -- Pet kills from older builds had only a lifetime total and no timestamps.
-    -- Migrate the undated remainder into THIS weekly window once, while keeping
-    -- Today strictly event-based. This preserves the user's existing recent pet
-    -- kills without making yesterday's kills appear as today's kills.
-    if db.legacyWeeklyMigrationDone == nil then
-        local datedCount = #(db.events or {})
-        local undated = math.max(0, (tonumber(db.total) or 0) - datedCount)
-        db.legacyWeeklyCarry = undated
-        db.legacyWeeklyCarryWeekStart = weekStart
-        db.legacyWeeklyMigrationDone = true
-    end
-
-    local total = HunterPetKillsInRange(weekStart, now + 60)
-    if tonumber(db.legacyWeeklyCarryWeekStart) == tonumber(weekStart) then
-        total = total + (tonumber(db.legacyWeeklyCarry) or 0)
-    end
-    return total
+    return HunterPetKillsInRange(weekStart, now + 60)
 end
 
 local recordStatsCache = {
