@@ -3981,7 +3981,7 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
     end
 
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
-        local _, subEvent, _, sourceGUID, sourceName, sourceFlags, _, destGUID, destName, destFlags, _, payload1, payload2 =
+        local _, subEvent, _, sourceGUID, sourceName, sourceFlags, _, destGUID, destName, destFlags, _, payload1, payload2, payload3, payload4, payload5 =
             CombatLogGetCurrentEventInfo()
 
         -- Feign Death may have no destination on SPELL_CAST_SUCCESS, so use the
@@ -4072,7 +4072,15 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
         -- Feign Death is represented by the combat-log "unconsciousOnDeath"
         -- flag on PARTY_KILL/UNIT_DIED. It can arrive before either normal kill
         -- path, so suppress it here before any RecordKill() call.
-        if (subEvent == "PARTY_KILL" or subEvent == "UNIT_DIED")
+        if subEvent == "PARTY_KILL"
+            and destGUID and destName and IsPlayerGUID(destGUID)
+            and (payload5 == 1 or payload5 == true or payload5 == "1") then
+            MarkHunterFeign(destGUID, destName)
+            recentOutgoingVictims[destGUID] = nil
+            return
+        end
+
+        if subEvent == "UNIT_DIED"
             and destGUID and destName and IsPlayerGUID(destGUID)
             and (payload2 == 1 or payload2 == true or payload2 == "1") then
             MarkHunterFeign(destGUID, destName)
@@ -4120,6 +4128,13 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
         -- signal for hostile Hunters: no SPELL_AURA_APPLIED is guaranteed for an
         -- enemy Feign, so trying to detect it only from the spell event misses it.
         -- payload1 is the recap id; payload2 is the unconscious-on-death flag.
+        if subEvent == "SPELL_INSTAKILL" and destGUID and destName and IsPlayerGUID(destGUID)
+            and (payload5 == true or payload5 == 1 or payload5 == "1") then
+            MarkHunterFeign(destGUID, destName)
+            recentOutgoingVictims[destGUID] = nil
+            return
+        end
+
         if subEvent == "UNIT_DIED" and destGUID and destName and IsPlayerGUID(destGUID)
             and (payload2 == true or payload2 == 1 or payload2 == "1") then
             MarkHunterFeign(destGUID, destName)
