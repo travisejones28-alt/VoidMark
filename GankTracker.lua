@@ -3845,6 +3845,10 @@ local function MarkHunterFeign(guid, name)
     end
 end
 
+function GT:HandleHunterFeign(playerGUID, playerName)
+    MarkHunterFeign(playerGUID, playerName)
+end
+
 function GT:IsRecentFeign(playerName, playerGUID)
     local now = GetTime()
     if playerGUID then
