@@ -2705,6 +2705,16 @@ end
 function GT:RecordKill(playerName, playerGUID)
     if not playerName or playerName == "" then return end
 
+    -- Final central Feign gate. Every kill source (Spy, PARTY_KILL, UNIT_DIED,
+    -- assist fallback) eventually passes through RecordKill(), so also ask the
+    -- live unit state here. This covers Classic clients that do not expose a
+    -- usable Feign flag/spell event before kill credit is emitted.
+    if IsUnitCurrentlyFeigningName and IsUnitCurrentlyFeigningName(playerName) then
+        MarkHunterFeign(playerGUID, playerName)
+        if playerGUID then recentOutgoingVictims[playerGUID] = nil end
+        return
+    end
+
     -- Feign Death can generate UNIT_DIED-like traffic in Classic. Suppress it
     -- centrally so Spy.lua, PARTY_KILL/UNIT_DIED fallbacks, and other callers
     -- cannot accidentally turn a feign into a real gank.
