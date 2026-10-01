@@ -3913,6 +3913,17 @@ local function MarkHunterFeign(guid, name)
     end
 end
 
+local function ClearHunterFeign(guid, name)
+    if guid then recentFeign[guid] = nil end
+    local key = NormalizeFeignName(name)
+    if key then recentFeignByName[key] = nil end
+    local popup = GT._feignPopup
+    if popup then
+        popup._token = (popup._token or 0) + 1
+        popup:Hide()
+    end
+end
+
 function GT:HandleHunterFeign(playerGUID, playerName)
     MarkHunterFeign(playerGUID, playerName)
 end
@@ -4028,6 +4039,19 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
         local _, subEvent, _, sourceGUID, sourceName, sourceFlags, _, destGUID, destName, destFlags, _, payload1, payload2, payload3, payload4, payload5 =
             CombatLogGetCurrentEventInfo()
+
+        -- End the warning as soon as Classic exposes Feign ending. Also treat
+        -- a subsequent action by that same Hunter as proof they broke Feign
+        -- (for example standing up to cast/drop a trap) rather than waiting the
+        -- full five-second visual timeout.
+        if subEvent == "SPELL_AURA_REMOVED" and tonumber(payload1) == FEIGN_DEATH_SPELL_ID then
+            ClearHunterFeign(destGUID or sourceGUID, destName or sourceName)
+        elseif sourceGUID and recentFeign[sourceGUID]
+            and subEvent ~= "UNIT_DIED" and subEvent ~= "PARTY_KILL"
+            and not ((subEvent == "SPELL_CAST_SUCCESS" or subEvent == "SPELL_AURA_APPLIED")
+                and tonumber(payload1) == FEIGN_DEATH_SPELL_ID) then
+            ClearHunterFeign(sourceGUID, sourceName)
+        end
 
         -- Feign Death may have no destination on SPELL_CAST_SUCCESS, so use the
         -- source hunter there and the destination on AURA_APPLIED. This must run
