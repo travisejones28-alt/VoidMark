@@ -146,7 +146,7 @@ local function PositiveRangeResult(v)
 end
 
 function A:SpellRangeBound(unit)
-    if not unit or not UnitExists(unit) or not UnitIsPlayer(unit) or not UnitCanAttack("player",unit) then return nil end
+    if not unit or not self:Safe(UnitExists,unit) or not self:Safe(UnitIsPlayer,unit) or not self:Safe(UnitCanAttack,"player",unit) then return nil end
     local list=self.rangeSpells or self:BuildRangeSpellCache()
     for _,s in ipairs(list) do
         local ok
@@ -167,9 +167,9 @@ end
 function A:FindUnitByGUID(guid)
     if not guid then return nil end
     local unit=self.units and self.units[guid]
-    if unit and UnitExists(unit) and UnitGUID(unit)==guid then return unit end
+    if unit and self:Safe(UnitExists,unit) and self:Safe(UnitGUID,unit)==guid then return unit end
     for _,u in ipairs({"target","mouseover","focus"}) do
-        if UnitExists(u) and UnitGUID(u)==guid then
+        if self:Safe(UnitExists,u) and self:Safe(UnitGUID,u)==guid then
             self.units[guid]=u
             return u
         end
@@ -178,7 +178,7 @@ function A:FindUnitByGUID(guid)
     -- Scan them on the damage/death event before declaring the corpse unbounded.
     for i=1,40 do
         local u="nameplate"..i
-        if UnitExists(u) and UnitGUID(u)==guid then
+        if self:Safe(UnitExists,u) and self:Safe(UnitGUID,u)==guid then
             self.units[guid]=u
             return u
         end
@@ -225,7 +225,7 @@ end
 -- hostile-player world coordinates.  A positive range result is useful even
 -- when UnitPosition(enemy) is unavailable.
 function A:CurrentEnemyEnvelope(unit)
-    if not unit or not UnitExists(unit) or not UnitIsPlayer(unit) then return nil end
+    if not unit or not self:Safe(UnitExists,unit) or not self:Safe(UnitIsPlayer,unit) then return nil end
     local exact=self:WorldPosition(unit)
     if exact then return exact,0,"exact hostile UnitPosition" end
     local anchor=self:WorldPosition("player")
