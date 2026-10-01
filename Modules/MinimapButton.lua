@@ -1,5 +1,6 @@
 -- VoidMark native minimap button
 -- Lightweight, dependency-free launcher. Position and visibility are account-wide.
+local addonName = ...
 VoidMarkMinimap = VoidMarkMinimap or {}
 local MM = VoidMarkMinimap
 
@@ -59,7 +60,16 @@ function MM:OpenSettings(button)
     end
 end
 
-function MM:Create()
+function -- SavedVariables are guaranteed ready at ADDON_LOADED.  Do not initialize
+-- SpyDB during file execution; doing so could race the client's SavedVariables
+-- restore on some Classic builds.
+local loader = CreateFrame("Frame")
+loader:RegisterEvent("ADDON_LOADED")
+loader:SetScript("OnEvent", function(self, _, loaded)
+    if loaded ~= addonName then return end
+    self:UnregisterEvent("ADDON_LOADED")
+    MM:Create()
+end)
     if self.button or not Minimap then return end
 
     local b = CreateFrame("Button", "VoidMarkMinimapButton", Minimap, "BackdropTemplate")
