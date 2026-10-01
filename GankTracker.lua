@@ -3977,6 +3977,49 @@ end
 function GT:ConfirmHunterRealDeath(playerGUID, playerName)
     if not IsKnownHunter(playerName, playerGUID) then return false end
     ConfirmHunterRealDeath(playerGUID, playerName)
+    GT._pendingHunterDeaths = GT._pendingHunterDeaths or {}
+    GT._pendingHunterDeaths[playerGUID] = nil
+    return true
+end
+
+function GT:HandleHunterUnitDied(playerGUID, playerName)
+    if not playerGUID or not IsKnownHunter(playerName, playerGUID) then return false end
+
+    local confirmedAt = tonumber(recentConfirmedPlayerKills[playerGUID]) or 0
+    if confirmedAt > 0 and (GetTime() - confirmedAt) <= 2.0 then
+        -- PARTY_KILL already proved this was a genuine death.
+        ClearHunterFeign(playerGUID, playerName)
+        return true
+    end
+
+    -- UNIT_DIED by itself is ambiguous for Hunters on Classic Era. Do not announce
+    -- FEIGN synchronously. Hold it briefly so PARTY_KILL from another callback can
+    -- win first. A token makes stale timers harmless.
+    GT._pendingHunterDeaths = GT._pendingHunterDeaths or {}
+    local token = (GT._pendingHunterDeathToken or 0) + 1
+    GT._pendingHunterDeathToken = token
+    GT._pendingHunterDeaths[playerGUID] = token
+
+    local function classify()
+        if not GT._pendingHunterDeaths or GT._pendingHunterDeaths[playerGUID] ~= token then return end
+        GT._pendingHunterDeaths[playerGUID] = nil
+
+        local realAt = tonumber(recentConfirmedPlayerKills[playerGUID]) or 0
+        if realAt > 0 and (GetTime() - realAt) <= 2.0 then
+            ClearHunterFeign(playerGUID, playerName)
+            return
+        end
+
+        -- With no real kill credit after the grace window, this matches the
+        -- controlled Classic Era Feign signature: Hunter UNIT_DIED without PARTY_KILL.
+        MarkHunterFeign(playerGUID, playerName)
+    end
+
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.35, classify)
+    else
+        classify()
+    end
     return true
 end
 
@@ -4208,15 +4251,9 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
         if subEvent == "UNIT_DIED"
             and destGUID and destName and IsPlayerGUID(destGUID)
             and IsKnownHunter(destName, destGUID) then
-            local confirmedAt = tonumber(recentConfirmedPlayerKills[destGUID]) or 0
-            if (GetTime() - confirmedAt) > 2.0 then
-                -- Empirically on Classic Era 1.15.9, hostile Hunter Feign emitted
-                -- UNIT_DIED with recap=-1/unconscious=false and no PARTY_KILL.
-                MarkHunterFeign(destGUID, destName)
-                recentOutgoingVictims[destGUID] = nil
-                return
-            end
-            recentConfirmedPlayerKills[destGUID] = nil
+            GT:HandleHunterUnitDied(destGUID, destName)
+            recentOutgoingVictims[destGUID] = nil
+            return
         end
 
         if subEvent == "UNIT_DIED"
