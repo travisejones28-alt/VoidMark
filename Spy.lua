@@ -2573,11 +2573,24 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 		-- Stop it before the normal PARTY_KILL path can record a real gank.
 		-- arg13 is unconsciousOnDeath for PARTY_KILL.
 		if event == "PARTY_KILL" and dstName and dstGUID then
-			local feignDetected = (arg13 == 1 or arg13 == true or arg13 == "1")
+			-- PARTY_KILL stores unconsciousOnDeath in arg16 on Classic's
+			-- combat-log payload. Keep arg13 as a compatibility fallback.
+			local feignDetected = (arg16 == 1 or arg16 == true or arg16 == "1"
+				or arg13 == 1 or arg13 == true or arg13 == "1")
 			if not feignDetected and TaliaaGankTracker and TaliaaGankTracker.IsUnitCurrentlyFeigningName then
 				feignDetected = TaliaaGankTracker:IsUnitCurrentlyFeigningName(dstName)
 			end
 			if feignDetected then
+			if TaliaaGankTracker and TaliaaGankTracker.HandleHunterFeign then
+				TaliaaGankTracker:HandleHunterFeign(dstGUID, dstName)
+			end
+			Spy.GankRecentDamage[dstName] = nil
+			return
+		end
+
+		-- SPELL_INSTAKILL also carries unconsciousOnDeath in arg16.
+		if event == "SPELL_INSTAKILL" and dstName and dstGUID
+			and (arg16 == 1 or arg16 == true or arg16 == "1") then
 			if TaliaaGankTracker and TaliaaGankTracker.HandleHunterFeign then
 				TaliaaGankTracker:HandleHunterFeign(dstGUID, dstName)
 			end
