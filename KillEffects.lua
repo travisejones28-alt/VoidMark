@@ -227,7 +227,18 @@ end
 
 local function PlayFile(filename)
     if not filename or not PlaySoundFile then return end
-    PlaySoundFile(SOUND_ROOT .. filename, "Master")
+    local ok, handle = PlaySoundFile(SOUND_ROOT .. filename, "Master")
+    if ok and handle then
+        KE._activeSoundHandle = handle
+    end
+end
+
+function KE:StopActiveSound()
+    local handle = self._activeSoundHandle
+    self._activeSoundHandle = nil
+    if handle and StopSound then
+        pcall(StopSound, handle, 0)
+    end
 end
 
 local function FavoriteEmoteTokens(db)
