@@ -2043,10 +2043,11 @@ UpdatePanicDisplay = function(forcedCount)
     count = tonumber(count) or 0
 
     local style = (SpyDB and SpyDB.VoidMarkPanicStyle) or "skull"
-    local prefix = style == "banner" and "{skull} PANIC"
-        or style == "diamond" and "{skull}\nPANIC"
-        or style == "ring" and "{skull} PANIC"
-        or "{skull}\nPANIC"
+    local skullIcon = "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_8:16:16|t"
+    local prefix = style == "banner" and (skullIcon .. " PANIC")
+        or style == "diamond" and (skullIcon .. "\nPANIC")
+        or style == "ring" and (skullIcon .. " PANIC")
+        or (skullIcon .. "\nPANIC")
     if style == "diamond" or style == "skull" then
         label:SetText(prefix .. "\n" .. tostring(count))
     else
@@ -2122,12 +2123,14 @@ function GT:GetPanicThreats(seconds)
             -- Classic reports a player 10+ levels above you as a skull/??.
             -- Some detection paths do not expose a numeric level at all, so a
             -- missing/non-positive level is conservatively treated the same way.
-            local skull = not level or level < 1
-            if skull or level >= minimumRelevantLevel then
+            local skull = level ~= nil and level < 0
+            local unknown = level == nil or level == 0
+            if skull or unknown or level >= minimumRelevantLevel then
                 threats[#threats + 1] = {
                     name = playerName,
-                    level = skull and nil or level,
+                    level = (skull or unknown) and nil or level,
                     skull = skull,
+                    unknown = unknown,
                 }
             end
         else
@@ -2138,6 +2141,7 @@ function GT:GetPanicThreats(seconds)
     table.sort(threats, function(a, b)
         if a.skull ~= b.skull then return a.skull end
         if a.skull then return tostring(a.name or "") < tostring(b.name or "") end
+        if a.unknown ~= b.unknown then return not a.unknown end
         local aLevel = tonumber(a.level) or 0
         local bLevel = tonumber(b.level) or 0
         if aLevel ~= bLevel then return aLevel > bLevel end
@@ -2387,8 +2391,10 @@ local function PanicThreatLevelList(threats)
     for _, threat in ipairs(threats or {}) do
         if threat.skull then
             levels[#levels + 1] = "??"
+        elseif threat.unknown then
+            levels[#levels + 1] = "?"
         else
-            levels[#levels + 1] = tostring(tonumber(threat.level) or "??")
+            levels[#levels + 1] = tostring(tonumber(threat.level) or "?")
         end
     end
     return table.concat(levels, ", ")
@@ -3493,7 +3499,7 @@ end)
 -- Options -------------------------------------------------------------------
 local optionsFrame = CreateFrame("Frame", "TaliaaSpyGankOptionsFrame", UIParent, "BackdropTemplate")
 GT.OptionsFrame = optionsFrame
-optionsFrame:SetSize(350, 325)
+optionsFrame:SetSize(350, 355)
 optionsFrame:SetPoint("CENTER", UIParent, "CENTER", 535, 120)
 optionsFrame:SetFrameStrata("DIALOG")
 optionsFrame:SetClampedToScreen(true)
@@ -3598,13 +3604,13 @@ MakeVoidMarkCheckbox("levelBreakdown", "LEVEL BREAKDOWN", 16, -123)
 MakeVoidMarkCheckbox("showPanic", "SHOW PANIC", 184, -123)
 
 local panicStyleLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-panicStyleLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 184, -151)
+panicStyleLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 16, -154)
 panicStyleLabel:SetText("Panic style")
 panicStyleLabel:SetTextColor(0.56, 0.49, 0.62, 1)
 
 local panicStyleDropdown = CreateFrame("Frame", "VoidMarkPanicStyleDropdown", optionsFrame, "UIDropDownMenuTemplate")
 GT.PanicStyleDropdown = panicStyleDropdown
-panicStyleDropdown:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 244, -139)
+panicStyleDropdown:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 78, -142)
 UIDropDownMenu_SetWidth(panicStyleDropdown, 88)
 
 local PANIC_STYLE_NAMES = {
@@ -3639,17 +3645,17 @@ end)
 UIDropDownMenu_SetText(panicStyleDropdown, PANIC_STYLE_NAMES[GetPanicStyle()])
 
 local sendLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-sendLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 16, -160)
+sendLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 16, -190)
 sendLabel:SetText("Send report to")
 sendLabel:SetTextColor(0.56, 0.49, 0.62, 1)
 
-MakeVoidMarkCheckbox("party", "PARTY/RAID", 16, -178)
-MakeVoidMarkCheckbox("guild", "GUILD", 112, -178)
-MakeVoidMarkCheckbox("whisper", "WHISPER", 184, -178)
-MakeVoidMarkCheckbox("say", "SAY", 278, -178)
+MakeVoidMarkCheckbox("party", "PARTY/RAID", 16, -208)
+MakeVoidMarkCheckbox("guild", "GUILD", 112, -208)
+MakeVoidMarkCheckbox("whisper", "WHISPER", 184, -208)
+MakeVoidMarkCheckbox("say", "SAY", 278, -208)
 
 local whisperLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-whisperLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 16, -214)
+whisperLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 16, -244)
 whisperLabel:SetText("Whisper target")
 whisperLabel:SetTextColor(0.56, 0.49, 0.62, 1)
 
@@ -3677,10 +3683,10 @@ end)
 -- --------------------------------------------------------------------------
 -- ACCOUNT SYNC
 -- --------------------------------------------------------------------------
-SectionTitle("ACCOUNT SYNC", -253)
+SectionTitle("ACCOUNT SYNC", -283)
 
 local repoStatus = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-repoStatus:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 16, -272)
+repoStatus:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 16, -302)
 repoStatus:SetWidth(318)
 repoStatus:SetJustifyH("LEFT")
 repoStatus:SetTextColor(0.58, 0.51, 0.64, 1)
@@ -3921,6 +3927,7 @@ RefreshPanicStyle = function()
 
     -- One live frame, four layouts. Changing style never recreates the frame,
     -- so its drag position, visibility, scripts and current threat state survive.
+    panicFrame.Button:ClearAllPoints()
     if style == "banner" then
         panicFrame:SetSize(150, 38)
         panicFrame.Button:SetPoint("TOPLEFT", panicFrame, "TOPLEFT", 3, -3)
