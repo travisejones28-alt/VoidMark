@@ -25,13 +25,36 @@ function A:IsEnemyPlayer(guid,flags)
 end
 
 function A:Observe(unit)
-    if not unit or not UnitIsPlayer(unit) then return end
-    local guid=UnitGUID(unit); if not guid then return end
-    local name,realm=UnitName(unit); name=name or "Unknown"; if realm and realm~="" then name=name.."-"..realm end
-    local _,class=UnitClass(unit); local _,race=UnitRace(unit); local faction=UnitFactionGroup(unit)
-    self.seen[guid]={name=name,level=UnitLevel(unit),class=class,race=race,faction=faction,observed=self:Now()}
+    -- Mouseover/nameplate/target events can fire while Blizzard marks the unit
+    -- token as protected.  Identity reads on those tokens can taint the UI even
+    -- though this observer never performs a protected action.  Read every unit
+    -- field through the RunBack safe wrapper and abandon the observation when
+    -- the token is not safely readable.
+    if not unit then return end
+    local isPlayer=self:Safe(UnitIsPlayer,unit)
+    if not isPlayer then return end
+
+    local guid=self:Safe(UnitGUID,unit)
+    if type(guid)~="string" or guid:sub(1,7)~="Player-" then return end
+
+    local name,realm=self:Safe(UnitName,unit)
+    if not name or name=="" then return end
+    if realm and realm~="" then name=name.."-"..realm end
+
+    local _,class=self:Safe(UnitClass,unit)
+    local _,race=self:Safe(UnitRace,unit)
+    local faction=self:Safe(UnitFactionGroup,unit)
+    local level=self:Safe(UnitLevel,unit)
+
+    self.seen[guid]={name=name,level=level,class=class,race=race,faction=faction,observed=self:Now()}
     self.units[guid]=unit
-    self:RememberEnemyEnvelope(guid,unit,"unit observation")
+
+    -- Range/location enrichment is optional.  The combat log can still create a
+    -- valid death record if a protected unit token prevents this observation.
+    self:Safe(function()
+        self:RememberEnemyEnvelope(guid,unit,"unit observation")
+    end)
+
     self:ScheduleCleanup()
     -- Identity/range observations never alter an already-created death timer.
 end
