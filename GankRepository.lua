@@ -817,9 +817,54 @@ end
 -- merger deliberately preserves the original PlayerData keys, which can differ
 -- by realm suffix, case, or an accented character.  Only accept a folded alias
 -- when it is unique so two genuinely different players are never combined.
-local function LegacySpyLifetimeWins(name)
+local legacySpyLookupSource = nil
+local legacySpyLookup = nil
+
+-- Build the expensive accent/realm alias index once per loaded legacy table.
+-- Statistics can resolve hundreds/thousands of rows in one click; scanning all
+-- 3k+ recovered records once per row causes Classic's "script ran too long".
+local function EnsureLegacySpyLookup()
     local legacy = SpyDB and SpyDB.VoidMarkLegacyPlayers
-    if type(legacy) ~= "table" then return 0, nil, "none" end
+    if type(legacy) ~= "table" then
+        legacySpyLookupSource = nil
+        legacySpyLookup = nil
+        return nil, nil
+    end
+    if legacySpyLookupSource == legacy and legacySpyLookup then
+        return legacy, legacySpyLookup
+    end
+
+    local lookup = { exact = {}, canonical = {} }
+    local function add(bucket, key, legacyKey, wins)
+        if key == "" then return end
+        local item = bucket[key]
+        if not item then
+            bucket[key] = { count = 1, key = legacyKey, wins = wins }
+        elseif item.key ~= legacyKey then
+            item.count = item.count + 1
+            if wins > item.wins then item.wins = wins end
+        end
+    end
+
+    for key, candidate in pairs(legacy) do
+        if type(candidate) == "table" then
+            local wins = tonumber(candidate.wins) or 0
+            local full = ExactPlayerNameKey(key)
+            local base = ExactPlayerNameKey(BasePlayerNameText(key))
+            add(lookup.exact, full, key, wins)
+            if base ~= full then add(lookup.exact, base, key, wins) end
+            add(lookup.canonical, CanonicalPlayerNameKey(key), key, wins)
+        end
+    end
+
+    legacySpyLookupSource = legacy
+    legacySpyLookup = lookup
+    return legacy, lookup
+end
+
+local function LegacySpyLifetimeWins(name)
+    local legacy, lookup = EnsureLegacySpyLookup()
+    if not legacy or not lookup then return 0, nil, "none" end
 
     local raw = tostring(name or "")
     local base = BasePlayerNameText(raw)
@@ -829,33 +874,19 @@ local function LegacySpyLifetimeWins(name)
         return tonumber(row.wins) or 0, raw, "direct"
     end
 
-    local wantFull = ExactPlayerNameKey(raw)
-    local wantBase = ExactPlayerNameKey(base)
-    local wantCanonical = CanonicalPlayerNameKey(raw)
-    local exactWins, exactKey, exactMatches = 0, nil, 0
-    local canonicalWins, canonicalKey, canonicalMatches = 0, nil, 0
-
-    for key, candidate in pairs(legacy) do
-        if type(candidate) == "table" then
-            local keyFull = ExactPlayerNameKey(key)
-            local keyBase = ExactPlayerNameKey(BasePlayerNameText(key))
-            if keyFull == wantFull or keyBase == wantBase then
-                exactMatches = exactMatches + 1
-                exactWins = math.max(exactWins, tonumber(candidate.wins) or 0)
-                exactKey = key
-            elseif wantCanonical ~= "" and CanonicalPlayerNameKey(key) == wantCanonical then
-                canonicalMatches = canonicalMatches + 1
-                canonicalWins = math.max(canonicalWins, tonumber(candidate.wins) or 0)
-                canonicalKey = key
-            end
-        end
+    local full = lookup.exact[ExactPlayerNameKey(raw)]
+    local baseMatch = lookup.exact[ExactPlayerNameKey(base)]
+    local exact = full or baseMatch
+    if exact and exact.count == 1 then
+        return tonumber(exact.wins) or 0, exact.key, "legacy-exact"
     end
 
-    if exactMatches == 1 then return exactWins, exactKey, "legacy-exact" end
-    if exactMatches == 0 and canonicalMatches == 1 then
-        return canonicalWins, canonicalKey, "legacy-accent"
+    local canonical = lookup.canonical[CanonicalPlayerNameKey(raw)]
+    if (not exact or exact.count == 0) and canonical and canonical.count == 1 then
+        return tonumber(canonical.wins) or 0, canonical.key, "legacy-accent"
     end
-    return 0, nil, (exactMatches > 1 or canonicalMatches > 1) and "ambiguous" or "none"
+    return 0, nil, (exact and exact.count > 1) or (canonical and canonical.count > 1)
+        and "ambiguous" or "none"
 end
 
 local function SpyLifetimeWins(name, guid)
