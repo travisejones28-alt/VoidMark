@@ -5,6 +5,38 @@ VoidMarkMinimap = VoidMarkMinimap or {}
 local MM = VoidMarkMinimap
 
 local RADIUS = 80
+local EDGE_PAD = 2
+
+local function IsSquareMinimap()
+    -- Prefer the standard shape hint when a minimap addon exposes it.
+    if type(GetMinimapShape) == "function" then
+        local ok, shape = pcall(GetMinimapShape)
+        if ok and type(shape) == "string" then
+            shape = shape:upper()
+            if shape:find("SQUARE", 1, true) then return true end
+            if shape == "ROUND" then return false end
+        end
+    end
+
+    -- ElvUI uses a square minimap but does not consistently expose a
+    -- GetMinimapShape result on every Classic build.
+    if type(_G.ElvUI) == "table" then return true end
+
+    return false
+end
+
+local function SquareOffset(angle)
+    local dx, dy = math.cos(angle), math.sin(angle)
+    local halfW = ((Minimap and Minimap:GetWidth()) or (RADIUS * 2)) * 0.5 + EDGE_PAD
+    local halfH = ((Minimap and Minimap:GetHeight()) or (RADIUS * 2)) * 0.5 + EDGE_PAD
+
+    local ax, ay = math.abs(dx), math.abs(dy)
+    local tx = ax > 0.0001 and (halfW / ax) or math.huge
+    local ty = ay > 0.0001 and (halfH / ay) or math.huge
+    local t = math.min(tx, ty)
+
+    return dx * t, dy * t
+end
 
 local function DB()
     SpyDB = SpyDB or {}
@@ -28,8 +60,16 @@ end
 function MM:UpdatePosition()
     if not self.button or not Minimap then return end
     local angle = math.rad(DB().angle or 225)
+    local x, y
+
+    if IsSquareMinimap() then
+        x, y = SquareOffset(angle)
+    else
+        x, y = math.cos(angle) * RADIUS, math.sin(angle) * RADIUS
+    end
+
     self.button:ClearAllPoints()
-    self.button:SetPoint("CENTER", Minimap, "CENTER", math.cos(angle) * RADIUS, math.sin(angle) * RADIUS)
+    self.button:SetPoint("CENTER", Minimap, "CENTER", x, y)
 end
 
 function MM:SetShown(show)
