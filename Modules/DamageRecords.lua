@@ -351,51 +351,12 @@ local function BuildUI()
         DR:Refresh()
     end)
 
-    frame.ResetButton = CreateFrame("Button", nil, frame, "BackdropTemplate")
-    frame.ResetButton:SetSize(118, 24)
-    frame.ResetButton:SetPoint("LEFT", frame.PartyButton, "RIGHT", 10, 0)
-    frame.ResetButton:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        edgeSize = 6,
-    })
-    frame.ResetButton:SetBackdropColor(0.16, 0.035, 0.045, 1)
-    frame.ResetButton:SetBackdropBorderColor(0.72, 0.18, 0.24, 1)
-    frame.ResetButton.Text = frame.ResetButton:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    frame.ResetButton.Text:SetAllPoints()
-    frame.ResetButton.Text:SetText("RESET RECORDS")
-    frame.ResetButton:SetScript("OnClick", function()
-        StaticPopup_Show("VOIDMARK_RESET_DAMAGE_RECORDS")
-    end)
+
 
     frame:Hide()
     DR:Refresh()
 end
 
-StaticPopupDialogs["VOIDMARK_RESET_DAMAGE_RECORDS"] = {
-    text = "Reset ALL VoidMark damage records?\n\nThis clears the highest hit for every ability and the overall record. Your Party Announce setting will be kept.",
-    button1 = "RESET",
-    button2 = CANCEL,
-    OnAccept = function()
-        local db = DB()
-        db.records = {}
-        db.overall = nil
-        selectedKey = "__OVERALL"
-        if frame and frame.Dropdown then
-            UIDropDownMenu_SetSelectedValue(frame.Dropdown, selectedKey)
-            UIDropDownMenu_SetText(frame.Dropdown, "Highest Damage Ever")
-        end
-        if banner then
-            banner:Hide()
-        end
-        DR:Refresh()
-        DEFAULT_CHAT_FRAME:AddMessage("|cffb86cff[VoidMark]|r Damage records reset.")
-    end,
-    timeout = 0,
-    whileDead = true,
-    hideOnEscape = true,
-    preferredIndex = 3,
-}
 
 function DR:Toggle()
     BuildUI()
