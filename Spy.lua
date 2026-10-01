@@ -2526,8 +2526,8 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 			-- GankTracker remembers the authoritative PARTY_KILL signal.
 			if TaliaaGankTracker and TaliaaGankTracker.ShouldSuppressHunterUnitDied
 				and TaliaaGankTracker:ShouldSuppressHunterUnitDied(dstName, dstGUID) then
-				if TaliaaGankTracker.HandleHunterFeign then
-					TaliaaGankTracker:HandleHunterFeign(dstGUID, dstName)
+				if TaliaaGankTracker.HandleHunterUnitDied then
+					TaliaaGankTracker:HandleHunterUnitDied(dstGUID, dstName)
 				end
 				Spy.GankRecentDamage[dstName] = nil
 				return
