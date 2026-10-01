@@ -558,6 +558,59 @@ function Merge-DHKEvents {
     }
 }
 
+function Get-LegacySpyWins {
+    param([string]$Text)
+    $out = @{}
+    $rx = New-Object System.Text.RegularExpressions.Regex('\\["PlayerData"\\]\\s*=\\s*\\{')
+    $pos = 0
+    while ($pos -lt $Text.Length) {
+        $m = $rx.Match($Text, $pos)
+        if (-not $m.Success) { break }
+        $open = $Text.IndexOf('{', $m.Index)
+        $close = Find-MatchingBrace -Text $Text -OpenIndex $open
+        if ($open -lt 0 -or $close -lt 0) { break }
+        $entryRx = New-Object System.Text.RegularExpressions.Regex('\\["((?:\\\\.|[^"])*)"\\]\\s*=\\s*\\{')
+        $i = $open + 1
+        while ($i -lt $close) {
+            $em = $entryRx.Match($Text, $i)
+            if (-not $em.Success -or $em.Index -ge $close) { break }
+            $eo = $Text.IndexOf('{', $em.Index)
+            $ec = Find-MatchingBrace -Text $Text -OpenIndex $eo
+            if ($eo -lt 0 -or $ec -lt 0 -or $ec -gt $close) { break }
+            $raw = $Text.Substring($eo, $ec - $eo + 1)
+            $name = $em.Groups[1].Value
+            $wins = [int64](Get-LuaNumberField -TableText $raw -Field 'wins')
+            if ($name -and $wins -gt 0) {
+                $k = $name.ToLowerInvariant()
+                if (-not $out.ContainsKey($k) -or $wins -gt [int64]$out[$k].Wins) {
+                    $out[$k] = [pscustomobject]@{ Name=$name; Wins=$wins }
+                }
+            }
+            $i = $ec + 1
+        }
+        $pos = $close + 1
+    }
+    return $out
+}
+
+function Set-LegacySpyWins {
+    param([string]$Text, $Players)
+    $newline = if ($Text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($p in @($Players)) {
+        $lines.Add('["' + (Escape-LuaString $p.Name) + '"] = {["wins"] = ' + [int64]$p.Wins + '},')
+    }
+    $assignment = 'SpyDB["VoidMarkLegacyPlayers"] = {' + $newline + ($lines -join $newline) + $newline + '}'
+    $rx = New-Object System.Text.RegularExpressions.Regex('SpyDB\\["VoidMarkLegacyPlayers"\\]\\s*=\\s*\\{')
+    $m = $rx.Match($Text)
+    if ($m.Success) {
+        $open = $Text.IndexOf('{', $m.Index)
+        $close = Find-MatchingBrace -Text $Text -OpenIndex $open
+        if ($close -ge 0) { return $Text.Substring(0,$m.Index) + $assignment + $Text.Substring($close+1) }
+    }
+    if (-not $Text.EndsWith($newline)) { $Text += $newline }
+    return $Text + $assignment + $newline
+}
 function Set-OfflineSyncMarker {
     param(
         [string]$Text,
@@ -757,6 +810,7 @@ try {
                     Events = $events
                     Target = $target
                     Floors = $floors
+                    LegacySpyWins = (Get-LegacySpyWins -Text $text)
                     DHKEvents = $dhkEvents
                     DHKTarget = $dhkTarget
                 })
@@ -891,6 +945,20 @@ try {
     [object[]]$mergedFloors = @($floorByIdentity.Values | Sort-Object Identity)
     Write-Info ("Merged historical floors: {0}" -f $mergedFloors.Count)
 
+    # Recover the old Spy PlayerData lifetime counters from TaliaaSpy.lua.
+    # The addon rename changed the SavedVariables filename, so these otherwise
+    # remain stranded even though the underlying SpyDB variable name is unchanged.
+    $legacySpyWins = @{}
+    foreach ($cf in $candidateFiles) {
+        foreach ($k in @($cf.LegacySpyWins.Keys)) {
+            $p = $cf.LegacySpyWins[$k]
+            if (-not $legacySpyWins.ContainsKey($k) -or [int64]$p.Wins -gt [int64]$legacySpyWins[$k].Wins) {
+                $legacySpyWins[$k] = $p
+            }
+        }
+    }
+    [object[]]$mergedLegacySpyWins = @($legacySpyWins.Values | Sort-Object Name)
+    Write-Info ("Recovered pre-rename Spy lifetime records: {0}" -f $mergedLegacySpyWins.Count)
     $dhkMerge = Merge-DHKEvents -CandidateFiles $candidateFiles
     [object[]]$mergedDHKEvents = @($dhkMerge.Events)
     Write-Info ("Merged DHKs: {0} | retransmits removed: {1} | ID collisions repaired: {2}" -f $mergedDHKEvents.Count, $dhkMerge.Dropped, $dhkMerge.Collisions)
@@ -926,6 +994,7 @@ try {
         # Expose the most recent successful file merge to the addon next login.
         $unixNow = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
         $newText = Set-OfflineSyncMarker -Text $newText -Timestamp $unixNow -MergedCount $mergedEvents.Count
+        $newText = Set-LegacySpyWins -Text $newText -Players $mergedLegacySpyWins
 
         if ($DryRun) {
             Write-Info ("DRY RUN: would update {0}\{1}" -f $cf.Account, $cf.File.Name)
