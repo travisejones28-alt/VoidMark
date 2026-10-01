@@ -90,12 +90,13 @@ local banner
 local function ShowBanner(record)
     if not UIParent then return end
     if not banner then
+        -- A plain Frame is used intentionally. Classic Era Frame objects do not
+        -- support RegisterForClicks; OnMouseUp gives us the hardware click.
         banner = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
         banner:SetSize(440, 72)
         banner:SetPoint("TOP", UIParent, "TOP", 0, -170)
         banner:SetFrameStrata("DIALOG")
         banner:EnableMouse(true)
-        banner:RegisterForClicks("LeftButtonUp")
         banner:SetBackdrop({
             bgFile = "Interface\\Buttons\\WHITE8X8",
             edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -110,7 +111,8 @@ local function ShowBanner(record)
         banner.Title:SetPoint("TOPLEFT", banner.Icon, "TOPRIGHT", 12, -1)
         banner.Value = banner:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         banner.Value:SetPoint("TOPLEFT", banner.Title, "BOTTOMLEFT", 0, -7)
-        banner:SetScript("OnClick", function(self)
+        banner:SetScript("OnMouseUp", function(self, button)
+            if button ~= "LeftButton" then return end
             if self._yellMessage and SendChatMessage then
                 SendChatMessage(self._yellMessage, "YELL")
                 self._yellMessage = nil
@@ -119,28 +121,38 @@ local function ShowBanner(record)
         end)
         banner:Hide()
     end
-    if record.icon then
-        banner.Icon:SetTexture(record.icon)
+
+    -- Always populate the complete banner after creation. This avoids a partial
+    -- first-use frame if one optional API is unavailable on Classic Era.
+    if banner.Icon then
+        banner.Icon:SetTexture(record.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
         banner.Icon:Show()
-    else
-        banner.Icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
     end
+
     local db = DB()
-    if db.yellAnnounce then
-        banner.Title:SetText((record.critical and "NEW HIGH CRIT" or "NEW HIGH HIT") .. "  •  CLICK TO YELL")
-        banner._yellMessage = YellMessage(record)
-    else
-        banner.Title:SetText(record.critical and "NEW HIGH CRIT" or "NEW HIGH HIT")
-        banner._yellMessage = nil
+    if banner.Title then
+        if db.yellAnnounce then
+            banner.Title:SetText((record.critical and "NEW HIGH CRIT" or "NEW HIGH HIT") .. "  •  CLICK TO YELL")
+            banner._yellMessage = YellMessage(record)
+        else
+            banner.Title:SetText(record.critical and "NEW HIGH CRIT" or "NEW HIGH HIT")
+            banner._yellMessage = nil
+        end
     end
-    banner.Value:SetText(AbilityLabel(record) .. "  •  " .. tostring(record.amount)
-        .. "  →  " .. ShortTarget(record.targetName))
+    if banner.Value then
+        banner.Value:SetText(AbilityLabel(record) .. "  •  " .. tostring(record.amount)
+            .. "  →  " .. ShortTarget(record.targetName))
+    end
     banner:Show()
+
     local token = (banner._token or 0) + 1
     banner._token = token
     if C_Timer and C_Timer.After then
         C_Timer.After(3.0, function()
-            if banner and banner._token == token then banner:Hide() end
+            if banner and banner._token == token then
+                banner._yellMessage = nil
+                banner:Hide()
+            end
         end)
     end
 end
