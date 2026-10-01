@@ -2,6 +2,12 @@
 
 All notable VoidMark release changes are recorded here.
 
+## v1.0.1
+
+### Fixed
+- Updated offline AutoSync account-folder detection for GitHub/OneDrive working copies junctioned into the WoW AddOns folder
+- AutoSync now locates the actual Classic Era installation independently instead of assuming VoidMark physically resides under Interface\\AddOns
+
 ## v1.0.0
 
 Initial public GitHub release.
