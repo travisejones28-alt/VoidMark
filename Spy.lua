@@ -2581,11 +2581,12 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 				feignDetected = TaliaaGankTracker:IsUnitCurrentlyFeigningName(dstName)
 			end
 			if feignDetected then
-			if TaliaaGankTracker and TaliaaGankTracker.HandleHunterFeign then
-				TaliaaGankTracker:HandleHunterFeign(dstGUID, dstName)
+				if TaliaaGankTracker and TaliaaGankTracker.HandleHunterFeign then
+					TaliaaGankTracker:HandleHunterFeign(dstGUID, dstName)
+				end
+				Spy.GankRecentDamage[dstName] = nil
+				return
 			end
-			Spy.GankRecentDamage[dstName] = nil
-			return
 		end
 
 		-- SPELL_INSTAKILL also carries unconsciousOnDeath in arg16.
