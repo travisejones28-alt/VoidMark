@@ -2721,12 +2721,18 @@ end
 function GT:RecordKill(playerName, playerGUID)
     if not playerName or playerName == "" then return end
 
+    -- These Feign tables are declared later in the file. RecordKill can be called
+    -- by Spy before that section has initialized, so never index them unless ready.
+    local confirmedAt = 0
+    if playerGUID and recentConfirmedPlayerKills then
+        confirmedAt = tonumber(recentConfirmedPlayerKills[playerGUID]) or 0
+    end
+    local confirmedRealDeath = confirmedAt > 0 and (GetTime() - confirmedAt) <= 2.0
+
     -- Final central Feign gate. Every kill source (Spy, PARTY_KILL, UNIT_DIED,
     -- assist fallback) eventually passes through RecordKill(), so also ask the
     -- live unit state here. This covers Classic clients that do not expose a
     -- usable Feign flag/spell event before kill credit is emitted.
-    local confirmedAt = playerGUID and tonumber(recentConfirmedPlayerKills[playerGUID]) or 0
-    local confirmedRealDeath = confirmedAt > 0 and (GetTime() - confirmedAt) <= 2.0
     if not confirmedRealDeath and IsUnitCurrentlyFeigningName and IsUnitCurrentlyFeigningName(playerName) then
         MarkHunterFeign(playerGUID, playerName)
         if playerGUID then recentOutgoingVictims[playerGUID] = nil end
