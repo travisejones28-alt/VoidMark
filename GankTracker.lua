@@ -557,6 +557,7 @@ local recordStatsCache = {
 -- boundary changes, so never rescan thousands of historical rows every tick.
 local weeklyStatsCache = {
     eventCount = -1,
+    lastEventTime = -1,
     weekStart = nil,
     stats = nil,
 }
@@ -654,8 +655,10 @@ local function BuildWeeklyStats()
 
     local history = DailyHistory and DailyHistory() or nil
     local eventCount = history and (tonumber(history.eventCount) or 0) or 0
+    local lastEventTime = history and (tonumber(history.lastEventTime) or 0) or 0
     if weeklyStatsCache.stats
         and weeklyStatsCache.eventCount == eventCount
+        and weeklyStatsCache.lastEventTime == lastEventTime
         and weeklyStatsCache.weekStart == weekStart then
         return weeklyStatsCache.stats, true
     end
@@ -754,6 +757,7 @@ local function BuildWeeklyStats()
     stats.incomplete = (fileMerged > 0 and repoTotal > 0 and fileMerged > repoTotal)
 
     weeklyStatsCache.eventCount = eventCount
+    weeklyStatsCache.lastEventTime = lastEventTime
     weeklyStatsCache.weekStart = weekStart
     weeklyStatsCache.stats = stats
     return stats, true
@@ -951,6 +955,22 @@ local function RefreshDailyStats()
 
     local history = DailyHistory()
     if not history or type(history.events) ~= "table" then
+        -- Never leave yesterday's in-memory totals visible when the repository
+        -- is temporarily unavailable during login/reload.
+        GT.totalKills = 0
+        GT.uniqueKills = 0
+        GT.daily60Kills = 0
+        GT.dailyNoobKills = 0
+        GT.dailyUnknownLevelKills = 0
+        GT.victims = {}
+        GT.levelKillBuckets = {}
+        GT.sessionKills = 0
+        GT.sessionVictims = {}
+        GT.lastKillName = nil
+        GT.lastKillGUID = nil
+        GT.lastKillLevel = nil
+        GT.lastKillLocation = nil
+        GT.lastKillHistorical = 0
         return false
     end
 
