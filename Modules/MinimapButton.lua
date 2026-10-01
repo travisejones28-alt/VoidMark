@@ -60,16 +60,7 @@ function MM:OpenSettings(button)
     end
 end
 
-function -- SavedVariables are guaranteed ready at ADDON_LOADED.  Do not initialize
--- SpyDB during file execution; doing so could race the client's SavedVariables
--- restore on some Classic builds.
-local loader = CreateFrame("Frame")
-loader:RegisterEvent("ADDON_LOADED")
-loader:SetScript("OnEvent", function(self, _, loaded)
-    if loaded ~= addonName then return end
-    self:UnregisterEvent("ADDON_LOADED")
-    MM:Create()
-end)
+function MM:Create()
     if self.button or not Minimap then return end
 
     local b = CreateFrame("Button", "VoidMarkMinimapButton", Minimap, "BackdropTemplate")
@@ -151,4 +142,12 @@ if Spy and Spy.options and Spy.options.args and Spy.options.args.General and Spy
     }
 end
 
-MM:Create()
+-- SavedVariables are restored before ADDON_LOADED fires for this addon.
+-- Waiting here avoids creating or modifying SpyDB during file execution.
+local loader = CreateFrame("Frame")
+loader:RegisterEvent("ADDON_LOADED")
+loader:SetScript("OnEvent", function(self, _, loaded)
+    if loaded ~= addonName then return end
+    self:UnregisterEvent("ADDON_LOADED")
+    MM:Create()
+end)
