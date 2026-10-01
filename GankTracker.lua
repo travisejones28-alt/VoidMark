@@ -806,6 +806,11 @@ local function EnsureSessionStats()
     }
     local session = SpyDB.TaliaaGankSessions[key]
 
+    -- Preserve the live streak across /reload. SavedVariables are only flushed to
+    -- disk on logout/reload, so snapshot the current runtime streak before the
+    -- reload tears the UI down. This does not reconstruct or alter kill history.
+    GT._sessionKey = key
+
     -- Old builds let Session continue forever until a manual reset. If the saved
     -- session began before the active 08:00 window, roll it forward now. Seed it
     -- once from repository rows so kills already made after 08:00 survive relogs.
@@ -839,6 +844,17 @@ local function EnsureSessionStats()
     GT.sessionDHK = session.dhkCount
     return session
 end
+
+local streakSaveFrame = CreateFrame("Frame")
+streakSaveFrame:RegisterEvent("PLAYER_LOGOUT")
+streakSaveFrame:SetScript("OnEvent", function()
+    if not SpyDB or not SpyDB.TaliaaGankSessions then return end
+    local key = GT._sessionKey or SessionKey()
+    local session = SpyDB.TaliaaGankSessions[key]
+    if not session then return end
+    session.streak = math.max(0, tonumber(GT.currentStreak) or tonumber(session.streak) or 0)
+    session.bestStreak = math.max(tonumber(session.bestStreak) or 0, tonumber(GT.bestStreak) or 0, session.streak)
+end)
 
 local function SeedSessionFromHistory()
     local session = EnsureSessionStats()
