@@ -4046,6 +4046,17 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
             tracked.t = GetTime()
         end
 
+        -- Feign Death is represented by the combat-log "unconsciousOnDeath"
+        -- flag on PARTY_KILL/UNIT_DIED. It can arrive before either normal kill
+        -- path, so suppress it here before any RecordKill() call.
+        if (subEvent == "PARTY_KILL" or subEvent == "UNIT_DIED")
+            and destGUID and destName and IsPlayerGUID(destGUID)
+            and (payload2 == 1 or payload2 == true or payload2 == "1") then
+            MarkHunterFeign(destGUID, destName)
+            recentOutgoingVictims[destGUID] = nil
+            return
+        end
+
         -- Hunter pet kill credit. PARTY_KILL is authoritative when this character
         -- is the killer. Never route pet deaths through RecordKill().
         if subEvent == "PARTY_KILL"
