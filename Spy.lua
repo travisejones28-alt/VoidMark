@@ -2637,6 +2637,11 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 			local sourceIsPlayer = srcGUID == UnitGUID("player")
 
 			if dstName and isPlayerVictim and isEnemyVictim and sourceIsGroup then
+				-- PARTY_KILL is authoritative real-death evidence. Confirm a Hunter
+				-- before RecordKill so the following UNIT_DIED cannot race into Feign.
+				if TaliaaGankTracker and TaliaaGankTracker.ConfirmHunterRealDeath then
+					TaliaaGankTracker:ConfirmHunterRealDeath(dstGUID, dstName)
+				end
 				if TaliaaGankTracker and TaliaaGankTracker.RecordKill then
 					TaliaaGankTracker:RecordKill(dstName, dstGUID)
 				end
