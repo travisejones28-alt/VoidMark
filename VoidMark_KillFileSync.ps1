@@ -982,7 +982,7 @@ try {
         $f = $floorByIdentity[$identity]
         if (-not $f.Name) { continue }
         $n = $f.Name.ToLowerInvariant()
-        $matches = @($guidFloorsByName[$n])
+        $matches = @($guidFloorsByName[$n] | Where-Object { $null -ne $_ })
         if ($matches.Count -eq 1) {
             $g = $matches[0]
             $fGap = [double](Get-ObjectNumber -Object $f -Property 'Gap' -Default 0)
