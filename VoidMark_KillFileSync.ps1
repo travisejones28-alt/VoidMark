@@ -561,7 +561,7 @@ function Merge-DHKEvents {
 function Get-LegacySpyWins {
     param([string]$Text)
     $out = @{}
-    $rx = New-Object System.Text.RegularExpressions.Regex('\\["PlayerData"\\]\\s*=\\s*\\{')
+    $rx = New-Object System.Text.RegularExpressions.Regex('\["PlayerData"\]\s*=\s*\{')
     $pos = 0
     while ($pos -lt $Text.Length) {
         $m = $rx.Match($Text, $pos)
@@ -569,7 +569,7 @@ function Get-LegacySpyWins {
         $open = $Text.IndexOf('{', $m.Index)
         $close = Find-MatchingBrace -Text $Text -OpenIndex $open
         if ($open -lt 0 -or $close -lt 0) { break }
-        $entryRx = New-Object System.Text.RegularExpressions.Regex('\\["((?:\\\\.|[^"])*)"\\]\\s*=\\s*\\{')
+        $entryRx = New-Object System.Text.RegularExpressions.Regex('\["((?:\\.|[^"])*)"\]\s*=\s*\{')
         $i = $open + 1
         while ($i -lt $close) {
             $em = $entryRx.Match($Text, $i)
@@ -601,7 +601,7 @@ function Set-LegacySpyWins {
         $lines.Add('["' + (Escape-LuaString $p.Name) + '"] = {["wins"] = ' + [int64]$p.Wins + '},')
     }
     $assignment = 'SpyDB["VoidMarkLegacyPlayers"] = {' + $newline + ($lines -join $newline) + $newline + '}'
-    $rx = New-Object System.Text.RegularExpressions.Regex('SpyDB\\["VoidMarkLegacyPlayers"\\]\\s*=\\s*\\{')
+    $rx = New-Object System.Text.RegularExpressions.Regex('SpyDB\["VoidMarkLegacyPlayers"\]\s*=\s*\{')
     $m = $rx.Match($Text)
     if ($m.Success) {
         $open = $Text.IndexOf('{', $m.Index)
