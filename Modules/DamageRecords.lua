@@ -80,13 +80,10 @@ local function SelfNotice(record)
     )
 end
 
-local function YellNotice(record)
-    local db = DB()
-    if not db.yellAnnounce then return end
+local function YellMessage(record)
     local prefix = record.critical and "NEW HIGH CRIT!" or "NEW HIGH HIT!"
-    local message = prefix .. " " .. AbilityLabel(record) .. " - "
+    return prefix .. " " .. AbilityLabel(record) .. " - "
         .. tostring(record.amount) .. " vs " .. ShortTarget(record.targetName)
-    if SendChatMessage then SendChatMessage(message, "YELL") end
 end
 
 local banner
@@ -97,6 +94,8 @@ local function ShowBanner(record)
         banner:SetSize(440, 72)
         banner:SetPoint("TOP", UIParent, "TOP", 0, -170)
         banner:SetFrameStrata("DIALOG")
+        banner:EnableMouse(true)
+        banner:RegisterForClicks("LeftButtonUp")
         banner:SetBackdrop({
             bgFile = "Interface\\Buttons\\WHITE8X8",
             edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -111,6 +110,13 @@ local function ShowBanner(record)
         banner.Title:SetPoint("TOPLEFT", banner.Icon, "TOPRIGHT", 12, -1)
         banner.Value = banner:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         banner.Value:SetPoint("TOPLEFT", banner.Title, "BOTTOMLEFT", 0, -7)
+        banner:SetScript("OnClick", function(self)
+            if self._yellMessage and SendChatMessage then
+                SendChatMessage(self._yellMessage, "YELL")
+                self._yellMessage = nil
+                if self.Title then self.Title:SetText("YELLED") end
+            end
+        end)
         banner:Hide()
     end
     if record.icon then
@@ -119,7 +125,14 @@ local function ShowBanner(record)
     else
         banner.Icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
     end
-    banner.Title:SetText(record.critical and "NEW HIGH CRIT" or "NEW HIGH HIT")
+    local db = DB()
+    if db.yellAnnounce then
+        banner.Title:SetText((record.critical and "NEW HIGH CRIT" or "NEW HIGH HIT") .. "  •  CLICK TO YELL")
+        banner._yellMessage = YellMessage(record)
+    else
+        banner.Title:SetText(record.critical and "NEW HIGH CRIT" or "NEW HIGH HIT")
+        banner._yellMessage = nil
+    end
     banner.Value:SetText(AbilityLabel(record) .. "  •  " .. tostring(record.amount)
         .. "  →  " .. ShortTarget(record.targetName))
     banner:Show()
@@ -173,11 +186,10 @@ local function SaveRecord(kind, spellID, spellName, amount, critical, destGUID, 
         for k, v in pairs(record) do db.overall[k] = v end
     end
 
-    -- YELL replaces the private chat line when enabled. The screen banner
-    -- remains in either mode.
-    if db.yellAnnounce then
-        YellNotice(record)
-    else
+    -- Chat sending is protected when this fires from the combat log. When YELL
+    -- is enabled, the banner becomes the hardware-click that sends it. When
+    -- YELL is disabled, keep the private VoidMark notification.
+    if not db.yellAnnounce then
         SelfNotice(record)
     end
     ShowBanner(record)
