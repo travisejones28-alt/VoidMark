@@ -531,7 +531,7 @@ function VM:ApplyMainSkin()
         f.VoidMarkGeneratedHeader:SetPoint("TOPLEFT", f, "TOPLEFT", 3, -3)
         f.VoidMarkGeneratedHeader:SetPoint("TOPRIGHT", f, "TOPRIGHT", -3, -3)
         f.VoidMarkGeneratedHeader:SetHeight(82)
-        f.VoidMarkGeneratedHeader:SetTexture("Interface\\AddOns\\TaliaaSpy\\Textures\\VoidMarkGeneratedHeader.tga")
+        f.VoidMarkGeneratedHeader:SetTexture("Interface\\AddOns\\VoidMark\\Textures\\VoidMarkGeneratedHeader.tga")
         f.VoidMarkGeneratedHeader:SetTexCoord(0, 1, 0, 1)
     end
 
