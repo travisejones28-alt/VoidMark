@@ -2791,11 +2791,19 @@ function GT:RecordKill(playerName, playerGUID)
     if VoidMarkKillEffects and VoidMarkKillEffects.OnKill then
         if IsKnownHunter(playerName, playerGUID) and C_Timer and C_Timer.After then
             local effectName, effectGUID, effectStreak = playerName, playerGUID, GT.currentStreak
-            C_Timer.After(0.35, function()
-                if not GT:IsRecentFeign(effectName, effectGUID) then
-                    VoidMarkKillEffects:OnKill(effectName, effectGUID, effectStreak)
-                end
-            end)
+            local confirmedAt = effectGUID and tonumber(recentConfirmedPlayerKills[effectGUID]) or 0
+            if confirmedAt > 0 and (GetTime() - confirmedAt) <= 2.0 then
+                -- PARTY_KILL is the authoritative real-Hunter-death signal.
+                VoidMarkKillEffects:OnKill(effectName, effectGUID, effectStreak)
+            else
+                -- Unconfirmed Hunter death paths can be Feign. Wait long enough
+                -- for UNIT_DIED/Feign classification before allowing any kill audio.
+                C_Timer.After(2.25, function()
+                    if not GT:IsRecentFeign(effectName, effectGUID) then
+                        VoidMarkKillEffects:OnKill(effectName, effectGUID, effectStreak)
+                    end
+                end)
+            end
         else
             VoidMarkKillEffects:OnKill(playerName, playerGUID, GT.currentStreak)
         end
