@@ -2492,11 +2492,11 @@ function Repo:GetStatisticsSnapshot()
         local floor = directFloor(row)
         local legacyWins = tonumber(row.legacyWins) or 0
         if legacyWins <= 0 then legacyWins = select(1, LegacySpyLifetimeWins(row.name)) end
-        -- A legacy floor is an absolute historical minimum, not an amount to
-        -- add on top of today's timestamped repository count. Adding it here
-        -- double-counts overlapping old kills. Confirmed repository events are
-        -- also a hard minimum (e.g. 15 timestamped kills must never display 8).
-        row.wins = math.max(repoEvents, floor, tonumber(row.spyWins) or 0, legacyWins)
+        -- legacyFloors stores the historical gap captured against the
+        -- repository, not an absolute lifetime total. Add that preserved gap to
+        -- confirmed repository events, while keeping every other known counter
+        -- as a non-destructive minimum.
+        row.wins = math.max(repoEvents + floor, repoEvents, tonumber(row.spyWins) or 0, legacyWins)
         row.loses = tonumber(row.loses) or 0
         row.time = tonumber(row.time) or 0
     end
