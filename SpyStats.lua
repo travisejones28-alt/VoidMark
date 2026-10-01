@@ -562,12 +562,13 @@ function SpyStats:Refresh()
                 rank:SetTextColor(r, g, b)
 
                 local class = GUI.ListFrameFields[view][row]["Class"]
-				local classtext = unit.class
-				if classtext then
-					classtext = (L[classtext])
-				else
-					classtext = "?"
-				end	
+                local classKey = type(unit.class) == "string" and unit.class or ""
+                local classtext = "?"
+                if classKey ~= "" then
+                    -- AceLocale throws on L[""]. Recovered legacy rows may
+                    -- legitimately have no class metadata.
+                    classtext = L[classKey] or classKey
+                end
                 class:SetText(classtext)
                 local classColor = unit.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[unit.class]
                 if classColor then
