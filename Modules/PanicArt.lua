@@ -83,8 +83,8 @@ end
 local function EnsureArt(button)
     if button.PanicArt then return end
 
-    button.PanicArt = button:CreateTexture(nil, "BACKGROUND", nil, -8)
-    button.PanicPulse = button:CreateTexture(nil, "ARTWORK", nil, -7)
+    button.PanicArt = button:CreateTexture(nil, "ARTWORK", nil, -4)
+    button.PanicPulse = button:CreateTexture(nil, "ARTWORK", nil, -3)
     button.PanicPulse:SetBlendMode("ADD")
     button.PanicPulse:SetAlpha(0)
 
@@ -157,7 +157,7 @@ local function ApplyStyle(force)
     end
 end
 
-local function UpdateDisplay(force)
+local function UpdateDisplay(force, forcedCount)
     local _, pf, button, label = GetObjects()
     if not label then return end
 
@@ -166,7 +166,9 @@ local function UpdateDisplay(force)
 
     local style = lastStyle or CurrentStyle()
     local spec = STYLE_SPEC[style]
-    local count = ThreatCount()
+    local count = forcedCount
+    if count == nil then count = ThreatCount() end
+    count = tonumber(count) or 0
 
     local text
     if spec.text == "banner" then
@@ -196,6 +198,10 @@ local function UpdateDisplay(force)
         alpha = 0.14
     end
     button.PanicPulse:SetAlpha(alpha)
+end
+
+function GT:RefreshPanicArt(force, forcedCount)
+    UpdateDisplay(force and true or false, forcedCount)
 end
 
 local driver = CreateFrame("Frame")
