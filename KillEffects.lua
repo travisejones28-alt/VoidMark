@@ -4,7 +4,7 @@
 VoidMarkKillEffects = VoidMarkKillEffects or {}
 local KE = VoidMarkKillEffects
 
-local ADDON = "TaliaaSpy"
+local ADDON = "VoidMark"
 local SOUND_ROOT = "Interface\\AddOns\\" .. ADDON .. "\\Sounds\\KillEffects\\"
 local MULTI_WINDOW = 20
 
