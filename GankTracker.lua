@@ -133,8 +133,14 @@ end
 
 EnsureAnnounceSettings()
 
-local PANIC_LEVEL = 60
 local PANIC_WINDOW_SECONDS = 30
+local PANIC_LEVEL_MARGIN = 3
+
+local function PanicPlayerLevel()
+    local level = UnitLevel and tonumber(UnitLevel("player")) or nil
+    if not level or level < 1 then return 60 end
+    return math.min(60, level)
+end
 
 local LEVEL_BUCKET_ORDER = {"1-9", "10-20", "21-30", "31-40", "41-50", "51-59", "60"}
 GT.levelKillBuckets = GT.levelKillBuckets or {
@@ -2069,17 +2075,19 @@ function GT:NoteEnemySeen(playerName, timestamp, source)
     if UpdatePanicDisplay then UpdatePanicDisplay() end
 end
 
-function GT:GetRecentEnemyCount(seconds)
-    local window = seconds or 30
+function GT:GetPanicThreats(seconds)
+    local window = tonumber(seconds) or PANIC_WINDOW_SECONDS
     local cutoff = time() - window
-    local count = 0
+    local playerLevel = PanicPlayerLevel()
+    local minimumRelevantLevel = math.max(1, playerLevel - PANIC_LEVEL_MARGIN)
+    local threats = {}
 
-    for playerName, data in pairs(self.seenEnemies) do
+    for playerName, data in pairs(self.seenEnemies or {}) do
         local seenAt
         local level
 
         if type(data) == "table" then
-            seenAt = data.seenAt
+            seenAt = tonumber(data.seenAt)
             level = tonumber(data.level)
 
             if not level then
@@ -2088,21 +2096,42 @@ function GT:GetRecentEnemyCount(seconds)
                 data.level = level
             end
         else
-            seenAt = data
+            seenAt = tonumber(data)
             local seenData = FindPlayerDataForName(playerName)
             level = seenData and tonumber(seenData.level) or nil
         end
 
         if seenAt and seenAt >= cutoff then
-            if level and level == PANIC_LEVEL then
-                count = count + 1
+            -- Classic reports a player 10+ levels above you as a skull/??.
+            -- Some detection paths do not expose a numeric level at all, so a
+            -- missing/non-positive level is conservatively treated the same way.
+            local skull = not level or level < 1
+            if skull or level >= minimumRelevantLevel then
+                threats[#threats + 1] = {
+                    name = playerName,
+                    level = skull and nil or level,
+                    skull = skull,
+                }
             end
         else
             self.seenEnemies[playerName] = nil
         end
     end
 
-    return count
+    table.sort(threats, function(a, b)
+        if a.skull ~= b.skull then return a.skull end
+        if a.skull then return tostring(a.name or "") < tostring(b.name or "") end
+        local aLevel = tonumber(a.level) or 0
+        local bLevel = tonumber(b.level) or 0
+        if aLevel ~= bLevel then return aLevel > bLevel end
+        return tostring(a.name or "") < tostring(b.name or "")
+    end)
+
+    return threats
+end
+
+function GT:GetRecentEnemyCount(seconds)
+    return #self:GetPanicThreats(seconds)
 end
 
 local function FormatLevelBreakdownLines(buckets, unknown)
@@ -2310,20 +2339,62 @@ function GT:ReportCurrentHunt()
 end
 
 local function PanicLocation()
-    local subZone = GetSubZoneText() or ""
+    local subZone = GetSubZoneText and (GetSubZoneText() or "") or ""
     if subZone ~= "" then return subZone end
-    return GetZoneText() or "Unknown"
+    local zone = GetZoneText and (GetZoneText() or "") or ""
+    if zone ~= "" then return zone end
+    return "Unknown"
+end
+
+local function PanicCoordinates()
+    if not C_Map or not C_Map.GetBestMapForUnit or not C_Map.GetPlayerMapPosition then
+        return "??,??"
+    end
+
+    local okMap, mapID = pcall(C_Map.GetBestMapForUnit, "player")
+    if not okMap or not mapID then return "??,??" end
+
+    local okPos, pos = pcall(C_Map.GetPlayerMapPosition, mapID, "player")
+    if not okPos or not pos or not pos.GetXY then return "??,??" end
+
+    local okXY, x, y = pcall(pos.GetXY, pos)
+    if not okXY or not x or not y or (x == 0 and y == 0) then
+        return "??,??"
+    end
+
+    return string.format("%02d,%02d", math.floor((x * 100) + 0.5), math.floor((y * 100) + 0.5))
+end
+
+local function PanicThreatLevelList(threats)
+    local levels = {}
+    for _, threat in ipairs(threats or {}) do
+        if threat.skull then
+            levels[#levels + 1] = "??"
+        else
+            levels[#levels + 1] = tostring(tonumber(threat.level) or "??")
+        end
+    end
+    return table.concat(levels, ", ")
 end
 
 function GT:Panic()
-    local nearby = self:GetRecentEnemyCount(PANIC_WINDOW_SECONDS)
+    local threats = self:GetPanicThreats(PANIC_WINDOW_SECONDS)
     local location = PanicLocation()
+    local coords = PanicCoordinates()
+    local count = #threats
     local message
 
-    if nearby and nearby > 0 then
-        message = string.format("HELP! %s - %dx 60 nearby!", location, nearby)
+    if count > 0 then
+        message = string.format(
+            "PANIC {skull} %d THREAT%s [%s] {skull} %s (%s)",
+            count,
+            count == 1 and "" or "S",
+            PanicThreatLevelList(threats),
+            location,
+            coords
+        )
     else
-        message = string.format("HELP! %s!", location)
+        message = string.format("PANIC {skull} NEED HELP {skull} %s (%s)", location, coords)
     end
 
     SafeGroupMessage(message)
@@ -3506,6 +3577,7 @@ SectionTitle("REPORT", -78)
 HelpText("REPORT sends the tab you are looking at: TODAY, WEEK, or RECORDS.", -96)
 
 MakeVoidMarkCheckbox("levelBreakdown", "LEVEL BREAKDOWN", 16, -123)
+MakeVoidMarkCheckbox("showPanic", "SHOW PANIC", 184, -123)
 
 local sendLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 sendLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 16, -160)
@@ -3630,6 +3702,9 @@ local function RefreshSimpleOptions()
     if simpleButtons.levelBreakdown and simpleButtons.levelBreakdown.SetChecked then
         simpleButtons.levelBreakdown:SetChecked(report.reportStyle == "levels")
     end
+    if simpleButtons.showPanic and simpleButtons.showPanic.SetChecked then
+        simpleButtons.showPanic:SetChecked(SpyDB and SpyDB.VoidMarkShowPanicButton == true)
+    end
     for _, key in ipairs({"party", "guild", "whisper", "say"}) do
         local cb = simpleButtons[key]
         if cb and cb.SetChecked then
@@ -3647,6 +3722,20 @@ end
 simpleButtons.levelBreakdown:SetScript("OnClick", function(self)
     local report = EnsureReportSettings()
     report.reportStyle = self:GetChecked() and "levels" or "summary"
+    RefreshSimpleOptions()
+end)
+
+simpleButtons.showPanic:SetScript("OnClick", function(self)
+    if SpyDB then
+        SpyDB.VoidMarkShowPanicButton = self:GetChecked() and true or false
+    end
+    if GT.PanicFrame then
+        if SpyDB and SpyDB.VoidMarkShowPanicButton == true then
+            GT.PanicFrame:Show()
+        else
+            GT.PanicFrame:Hide()
+        end
+    end
     RefreshSimpleOptions()
 end)
 
@@ -3717,6 +3806,9 @@ local function RestorePanicPosition()
     end
 end
 RestorePanicPosition()
+if not (SpyDB and SpyDB.VoidMarkShowPanicButton == true) then
+    panicFrame:Hide()
+end
 
 local function StartPanicDrag()
     GT._panicDragging = true
@@ -3748,7 +3840,7 @@ panicFrame.Button:SetScript("OnEnter", function(self)
     self.Label:SetTextColor(1, 1, 1, 1)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine("VoidMark Panic", 0.88, 0.56, 1.0)
-    GameTooltip:AddLine("Click: send a short HELP call with your location and nearby level-60 count.", 0.88, 0.88, 0.92, true)
+    GameTooltip:AddLine("Click: send a PANIC call with relevant nearby enemy levels and your coordinates.", 0.88, 0.88, 0.92, true)
     GameTooltip:AddLine("Drag: move this button.", 0.68, 0.62, 0.72)
     GameTooltip:Show()
 end)
