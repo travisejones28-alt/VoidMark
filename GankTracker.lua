@@ -3792,6 +3792,25 @@ local function NormalizeFeignName(name)
     return string.lower(base)
 end
 
+local function IsUnitCurrentlyFeigningName(name)
+    if not name or not UnitIsFeignDeath then return false end
+    local function check(unit)
+        if not UnitExists or not UnitExists(unit) then return false end
+        local unitName = UnitName(unit)
+        if not unitName then return false end
+        local base = tostring(unitName):match("^([^%-]+)") or tostring(unitName)
+        local wanted = tostring(name):match("^([^%-]+)") or tostring(name)
+        if string.lower(base) ~= string.lower(wanted) then return false end
+        local ok, result = pcall(UnitIsFeignDeath, unit)
+        return ok and result == true
+    end
+    if check("target") or check("mouseover") then return true end
+    for i = 1, 40 do
+        if check("nameplate"..i) then return true end
+    end
+    return false
+end
+
 local function MarkHunterFeign(guid, name)
     local now = GetTime()
     if guid then
@@ -4082,7 +4101,8 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
             and IsPlayerGUID(destGUID)
             and IsHostilePlayerFlags(destFlags, destGUID) then
 
-            if GT:IsRecentFeign(destName, destGUID) then
+            if GT:IsRecentFeign(destName, destGUID) or IsUnitCurrentlyFeigningName(destName) then
+                MarkHunterFeign(destGUID, destName)
                 recentOutgoingVictims[destGUID] = nil
                 return
             end
@@ -4118,7 +4138,7 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
         -- character or a party/raid member damaged that hostile player recently.
         if subEvent == "UNIT_DIED" and destGUID and destName and IsPlayerGUID(destGUID) then
             local tracked = recentOutgoingVictims[destGUID]
-            if not GT:IsRecentFeign(destName, destGUID)
+            if not GT:IsRecentFeign(destName, destGUID) and not IsUnitCurrentlyFeigningName(destName)
                 and tracked and (GetTime() - (tonumber(tracked.t) or 0)) <= 30 then
                 GT:RecordKill(destName, destGUID)
             end
