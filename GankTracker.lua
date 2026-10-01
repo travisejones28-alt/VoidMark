@@ -3844,13 +3844,16 @@ function GT:IsUnitCurrentlyFeigningName(name)
     return IsUnitCurrentlyFeigningName(name)
 end
 
+local IsKnownHunter
+local recentConfirmedPlayerKills = {}
+
 function GT:ShouldSuppressHunterUnitDied(name, guid)
     if not IsKnownHunter(name, guid) then return false end
     local confirmedAt = guid and tonumber(recentConfirmedPlayerKills[guid]) or 0
     return not confirmedAt or confirmedAt == 0 or (GetTime() - confirmedAt) > 2.0
 end
 
-local function IsKnownHunter(name, guid)
+IsKnownHunter = function(name, guid)
     local data = FindPlayerDataForName and FindPlayerDataForName(name) or nil
     local class = data and (data.class or data.Class) or nil
     if not class and SpyPerCharDB and SpyPerCharDB.PlayerData then
@@ -3863,8 +3866,6 @@ local function IsKnownHunter(name, guid)
     end
     return tostring(class or ""):upper() == "HUNTER"
 end
-
-local recentConfirmedPlayerKills = {}
 
 local function MarkHunterFeign(guid, name)
     -- If a kill sound raced ahead of Classic's Feign classification, stop it
