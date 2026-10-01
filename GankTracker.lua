@@ -2036,24 +2036,41 @@ UpdatePanicDisplay = function(forcedCount)
     local label = button and button.Label
     if not label then return end
 
-    local recent60 = forcedCount
-    if recent60 == nil then
-        recent60 = GT:GetRecentEnemyCount(PANIC_WINDOW_SECONDS)
+    local count = forcedCount
+    if count == nil then
+        count = GT:GetRecentEnemyCount(PANIC_WINDOW_SECONDS)
+    end
+    count = tonumber(count) or 0
+
+    local style = (SpyDB and SpyDB.VoidMarkPanicStyle) or "skull"
+    local prefix = style == "banner" and "{skull} PANIC"
+        or style == "diamond" and "{skull}\nPANIC"
+        or style == "ring" and "{skull} PANIC"
+        or "{skull}\nPANIC"
+    if style == "diamond" or style == "skull" then
+        label:SetText(prefix .. "\n" .. tostring(count))
+    else
+        label:SetText(prefix .. "  " .. tostring(count))
     end
 
-    label:SetText("PANIC  •  " .. tostring(recent60 or 0))
-    if recent60 and recent60 >= 3 then
-        button:SetBackdropColor(0.50, 0.025, 0.045, 0.98)
-        label:SetTextColor(1.0, 0.92, 0.92, 1)
-    elseif recent60 and recent60 >= 1 then
-        button:SetBackdropColor(0.34, 0.025, 0.070, 0.98)
-        label:SetTextColor(1.0, 0.58, 0.68, 1)
+    if count >= 6 then
+        button:SetBackdropColor(0.58, 0.010, 0.025, 0.99)
+        button:SetBackdropBorderColor(1.00, 0.16, 0.12, 1)
+        label:SetTextColor(1.00, 0.94, 0.92, 1)
+    elseif count >= 3 then
+        button:SetBackdropColor(0.46, 0.020, 0.045, 0.99)
+        button:SetBackdropBorderColor(0.95, 0.12, 0.18, 1)
+        label:SetTextColor(1.00, 0.82, 0.82, 1)
+    elseif count >= 1 then
+        button:SetBackdropColor(0.28, 0.025, 0.070, 0.98)
+        button:SetBackdropBorderColor(0.78, 0.16, 0.32, 1)
+        label:SetTextColor(1.00, 0.58, 0.68, 1)
     else
-        button:SetBackdropColor(0.16, 0.020, 0.040, 0.96)
-        label:SetTextColor(0.78, 0.46, 0.56, 1)
+        button:SetBackdropColor(0.075, 0.025, 0.11, 0.97)
+        button:SetBackdropBorderColor(0.48, 0.20, 0.68, 1)
+        label:SetTextColor(0.82, 0.60, 0.96, 1)
     end
 end
-
 function GT:NoteEnemySeen(playerName, timestamp, source)
     if not playerName or playerName == "" then
         return
@@ -3528,6 +3545,7 @@ local function HelpText(textValue, y)
 end
 
 local simpleButtons = {}
+local RefreshPanicStyle
 
 local function SetSimpleButtonState(button, active)
     if not button then return end
@@ -3578,6 +3596,47 @@ HelpText("REPORT sends the tab you are looking at: TODAY, WEEK, or RECORDS.", -9
 
 MakeVoidMarkCheckbox("levelBreakdown", "LEVEL BREAKDOWN", 16, -123)
 MakeVoidMarkCheckbox("showPanic", "SHOW PANIC", 184, -123)
+
+local panicStyleLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+panicStyleLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 184, -151)
+panicStyleLabel:SetText("Panic style")
+panicStyleLabel:SetTextColor(0.56, 0.49, 0.62, 1)
+
+local panicStyleDropdown = CreateFrame("Frame", "VoidMarkPanicStyleDropdown", optionsFrame, "UIDropDownMenuTemplate")
+GT.PanicStyleDropdown = panicStyleDropdown
+panicStyleDropdown:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 244, -139)
+UIDropDownMenu_SetWidth(panicStyleDropdown, 88)
+
+local PANIC_STYLE_NAMES = {
+    skull = "Void Skull",
+    diamond = "Diamond",
+    ring = "Ring",
+    banner = "Banner",
+}
+
+local PANIC_STYLE_ORDER = {"skull", "diamond", "ring", "banner"}
+
+local function GetPanicStyle()
+    local style = SpyDB and SpyDB.VoidMarkPanicStyle or "skull"
+    if not PANIC_STYLE_NAMES[style] then style = "skull" end
+    return style
+end
+
+UIDropDownMenu_Initialize(panicStyleDropdown, function(self, level)
+    for _, style in ipairs(PANIC_STYLE_ORDER) do
+        local info = UIDropDownMenu_CreateInfo()
+        info.text = PANIC_STYLE_NAMES[style]
+        info.checked = GetPanicStyle() == style
+        info.func = function()
+            if SpyDB then SpyDB.VoidMarkPanicStyle = style end
+            UIDropDownMenu_SetText(panicStyleDropdown, PANIC_STYLE_NAMES[style])
+            if RefreshPanicStyle then RefreshPanicStyle() end
+            CloseDropDownMenus()
+        end
+        UIDropDownMenu_AddButton(info, level)
+    end
+end)
+UIDropDownMenu_SetText(panicStyleDropdown, PANIC_STYLE_NAMES[GetPanicStyle()])
 
 local sendLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 sendLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 16, -160)
@@ -3704,6 +3763,9 @@ local function RefreshSimpleOptions()
     end
     if simpleButtons.showPanic and simpleButtons.showPanic.SetChecked then
         simpleButtons.showPanic:SetChecked(SpyDB and SpyDB.VoidMarkShowPanicButton == true)
+    end
+    if GT.PanicStyleDropdown then
+        UIDropDownMenu_SetText(GT.PanicStyleDropdown, PANIC_STYLE_NAMES[GetPanicStyle()])
     end
     for _, key in ipairs({"party", "guild", "whisper", "say"}) do
         local cb = simpleButtons[key]
@@ -3852,6 +3914,41 @@ panicFrame.Button:SetScript("OnClick", function()
     if GT._panicDragging then return end
     GT:Panic()
 end)
+
+RefreshPanicStyle = function()
+    local style = (SpyDB and SpyDB.VoidMarkPanicStyle) or "skull"
+    if not PANIC_STYLE_NAMES[style] then style = "skull" end
+
+    -- One live frame, four layouts. Changing style never recreates the frame,
+    -- so its drag position, visibility, scripts and current threat state survive.
+    if style == "banner" then
+        panicFrame:SetSize(150, 38)
+        panicFrame.Button:SetPoint("TOPLEFT", panicFrame, "TOPLEFT", 3, -3)
+        panicFrame.Button:SetPoint("BOTTOMRIGHT", panicFrame, "BOTTOMRIGHT", -3, 3)
+        panicFrame.Button.Label:SetFontObject("GameFontNormal")
+    elseif style == "diamond" then
+        panicFrame:SetSize(66, 66)
+        panicFrame.Button:SetPoint("TOPLEFT", panicFrame, "TOPLEFT", 7, -7)
+        panicFrame.Button:SetPoint("BOTTOMRIGHT", panicFrame, "BOTTOMRIGHT", -7, 7)
+        panicFrame.Button.Label:SetFontObject("GameFontNormalSmall")
+    elseif style == "ring" then
+        panicFrame:SetSize(76, 54)
+        panicFrame.Button:SetPoint("TOPLEFT", panicFrame, "TOPLEFT", 5, -5)
+        panicFrame.Button:SetPoint("BOTTOMRIGHT", panicFrame, "BOTTOMRIGHT", -5, 5)
+        panicFrame.Button.Label:SetFontObject("GameFontNormal")
+    else
+        panicFrame:SetSize(72, 72)
+        panicFrame.Button:SetPoint("TOPLEFT", panicFrame, "TOPLEFT", 5, -5)
+        panicFrame.Button:SetPoint("BOTTOMRIGHT", panicFrame, "BOTTOMRIGHT", -5, 5)
+        panicFrame.Button.Label:SetFontObject("GameFontNormal")
+    end
+
+    ApplyVoidMarkFrame(panicFrame, VM_BG)
+    panicFrame:SetBackdropBorderColor(0.52, 0.08, 0.16, 1)
+    if UpdatePanicDisplay then UpdatePanicDisplay() end
+end
+
+RefreshPanicStyle()
 
 -- Session DHK / streak / revenge monitor ------------------------------------
 local combatMonitor = CreateFrame("Frame")
