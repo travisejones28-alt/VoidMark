@@ -50,4 +50,5 @@ Modules\TaliaaBoats.lua
 Modules\RideOrDie.lua
 Modules\DamageRecords.lua
 VoidMarkUI.lua
+Modules\MinimapButton.lua
 MCMarks.lua
