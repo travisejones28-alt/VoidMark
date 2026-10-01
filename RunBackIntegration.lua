@@ -115,18 +115,18 @@ function Spy:OnRunBackRezConfirmed(r, unit)
     local isKOS=SpyPerCharDB and SpyPerCharDB.KOSData and SpyPerCharDB.KOSData[name]
 
     if isKOS and profile.WarnOnKOS then
-        PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-kos.mp3",profile.SoundChannel)
+        PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-kos.mp3",profile.SoundChannel)
         return
     end
     if profile.WarnOnKOSGuild and playerData and playerData.guild and Spy.KOSGuild and Spy.KOSGuild[playerData.guild] then
-        PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-kosguild.mp3",profile.SoundChannel)
+        PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-kosguild.mp3",profile.SoundChannel)
         return
     end
     if profile.OnlySoundKoS then return end
     if playerData and profile.WarnOnRace and playerData.race==profile.SelectWarnRace then
-        PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-race.mp3",profile.SoundChannel)
+        PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-race.mp3",profile.SoundChannel)
     else
-        PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-nearby.mp3",profile.SoundChannel)
+        PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-nearby.mp3",profile.SoundChannel)
     end
 end
 
