@@ -2220,6 +2220,70 @@ local repoStatsCache = {
     victimCount = 0,
 }
 
+-- Statistics-facing snapshot of the permanent merged repository.
+-- This is intentionally built only when the Statistics window recalculates; it
+-- is not used by the combat hot path.
+function Repo:GetStatisticsSnapshot()
+    local history = EnsureHistory()
+    local out = {}
+    if not history then return out end
+
+    local byKey = {}
+    for key, victim in pairs(history.victims or {}) do
+        if type(victim) == "table" then
+            local row = {
+                key = tostring(key),
+                name = tostring(victim.name or "?"),
+                guid = tostring(victim.guid or ""),
+                wins = tonumber(victim.kills) or 0,
+                time = tonumber(victim.lastKill) or 0,
+                zone = victim.lastZone,
+                subZone = victim.lastSubZone,
+                level = victim.lastLevel,
+                class = victim.lastClass,
+            }
+            byKey[tostring(key)] = row
+            out[#out + 1] = row
+        end
+    end
+
+    -- legacyGap represents real historical kills that predate timestamped event
+    -- rows. Add it to the matching victim, or create a history-only row.
+    for key, entry in pairs(history.legacyFloors or {}) do
+        if type(entry) == "table" then
+            local gap = LegacyGapFromEntry(entry)
+            if gap > 0 then
+                local skey = tostring(key)
+                local row = byKey[skey]
+                if not row and entry.name then
+                    local wanted = ExactPlayerNameKey(entry.name)
+                    for _, candidate in ipairs(out) do
+                        if ExactPlayerNameKey(candidate.name) == wanted then
+                            row = candidate
+                            break
+                        end
+                    end
+                end
+                if row then
+                    row.wins = (tonumber(row.wins) or 0) + gap
+                else
+                    row = {
+                        key = skey,
+                        name = tostring(entry.name or "?"),
+                        guid = tostring(entry.guid or ""),
+                        wins = gap,
+                        time = tonumber(entry.capturedAt) or 0,
+                    }
+                    byKey[skey] = row
+                    out[#out + 1] = row
+                end
+            end
+        end
+    end
+
+    return out
+end
+
 function Repo:GetStats()
     local history = EnsureHistory()
     if not history then return 0, 0 end
