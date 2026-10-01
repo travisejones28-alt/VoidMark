@@ -26,20 +26,9 @@ function Find-AccountRoot {
         throw "Account root not found: $p"
     }
 
-    # Preferred path when this helper lives in:
-    # ...\_classic_era_\Interface\AddOns\TaliaaSpy\
-    try {
-        $addonDir = $PSScriptRoot
-        if ($addonDir) {
-            # TaliaaSpy -> AddOns -> Interface -> _classic_era_
-            $classicEraRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $addonDir))
-            $relativeAccountRoot = Join-Path $classicEraRoot "WTF\Account"
-            if (Test-Path -LiteralPath $relativeAccountRoot) {
-                return (Resolve-Path -LiteralPath $relativeAccountRoot).Path
-            }
-        }
-    } catch {}
-
+    # Do not derive WTF from $PSScriptRoot. VoidMark may be run from a GitHub/
+    # OneDrive working copy that is junctioned into Interface\AddOns.
+    # Instead, locate the actual Classic Era installation independently.
     $candidates = New-Object System.Collections.Generic.List[string]
     $drives = @("C:","D:","E:","F:","G:")
 
@@ -62,9 +51,9 @@ function Find-AccountRoot {
                     $base = $item.$prop
                     if ($base) {
                         $base = $base.TrimEnd("\")
-                        $candidates.Add((Join-Path $base "_classic_era_\WTF\Account"))
+                        $candidates.Insert(0, (Join-Path $base "_classic_era_\WTF\Account"))
                         if ($base -like "*_classic_era_*") {
-                            $candidates.Add((Join-Path $base "WTF\Account"))
+                            $candidates.Insert(0, (Join-Path $base "WTF\Account"))
                         }
                     }
                 }
