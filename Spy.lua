@@ -2565,6 +2565,18 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 			end
 		end
 
+		-- Feign Death is reported as an unconscious kill-credit event.
+		-- Stop it before the normal PARTY_KILL path can record a real gank.
+		-- arg13 is unconsciousOnDeath for PARTY_KILL.
+		if event == "PARTY_KILL" and dstName and dstGUID
+			and (arg13 == 1 or arg13 == true or arg13 == "1") then
+			if TaliaaGankTracker and TaliaaGankTracker.HandleHunterFeign then
+				TaliaaGankTracker:HandleHunterFeign(dstGUID, dstName)
+			end
+			Spy.GankRecentDamage[dstName] = nil
+			return
+		end
+
 		-- update win stats / Gank Tracker
 		if event == "PARTY_KILL" then
 			-- PARTY_KILL fires when YOU OR A GROUP MEMBER gets the killing blow.
