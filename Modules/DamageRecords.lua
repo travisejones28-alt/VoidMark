@@ -32,9 +32,17 @@ local function Location()
 end
 
 local function SpellInfoSafe(spellID, fallback)
-    local name, _, icon
+    local name, icon
     if GetSpellInfo and spellID then
         name, _, icon = GetSpellInfo(spellID)
+    end
+    -- Modernized Classic clients may expose spell info through C_Spell instead.
+    if (not name or not icon) and C_Spell and C_Spell.GetSpellInfo and spellID then
+        local info = C_Spell.GetSpellInfo(spellID)
+        if info then
+            name = name or info.name
+            icon = icon or info.iconID or info.iconFileID
+        end
     end
     return name or fallback or "Unknown", icon
 end
@@ -75,15 +83,13 @@ end
 local function PartyNotice(record)
     local db = DB()
     if not db.partyAnnounce then return end
-    local channel
-    if IsInRaid and IsInRaid() then channel = "RAID"
-    elseif IsInGroup and IsInGroup() then channel = "PARTY"
-    else return end
+    -- This option is deliberately party-only. Do not turn it into raid spam.
+    if not IsInGroup or not IsInGroup() or (IsInRaid and IsInRaid()) then return end
 
     local prefix = record.critical and "NEW HIGH CRIT!" or "NEW HIGH HIT!"
     local message = prefix .. " " .. AbilityLabel(record) .. " - "
         .. tostring(record.amount) .. " vs " .. ShortTarget(record.targetName)
-    SendChatMessage(message, channel)
+    if SendChatMessage then SendChatMessage(message, "PARTY") end
 end
 
 local banner
@@ -163,9 +169,11 @@ local function SaveRecord(kind, spellID, spellName, amount, critical, destGUID, 
         realm = tostring(GetRealmName and GetRealmName() or "?"),
     }
     db.records[key] = record
-    db.overall = db.overall or nil
-    if not db.overall or (tonumber(db.overall.amount) or 0) < amount then
-        db.overall = record
+    local isOverallRecord = not db.overall or (tonumber(db.overall.amount) or 0) < amount
+    if isOverallRecord then
+        -- Store a snapshot, not an alias to a per-ability table.
+        db.overall = {}
+        for k, v in pairs(record) do db.overall[k] = v end
     end
 
     SelfNotice(record)
@@ -190,9 +198,11 @@ eventFrame:SetScript("OnEvent", function(_, event)
     if sourceGUID ~= PlayerGUID() then return end
 
     if subevent == "SWING_DAMAGE" then
+        -- SWING_DAMAGE: amount=12, critical=18.
         SaveRecord("SWING", nil, "Melee", info[12], info[18], info[8], info[9])
     elseif subevent == "SPELL_DAMAGE" or subevent == "SPELL_PERIODIC_DAMAGE"
         or subevent == "RANGE_DAMAGE" then
+        -- SPELL/RANGE damage: spellId=12, spellName=13, amount=15, critical=21.
         SaveRecord("SPELL", info[12], info[13], info[15], info[21], info[8], info[9])
     end
 end)
@@ -224,6 +234,16 @@ function DR:Refresh()
     local db = DB()
     local r = SelectedRecord()
     frame.PartyButton.Text:SetText(db.partyAnnounce and "PARTY ANNOUNCE: ON" or "PARTY ANNOUNCE: OFF")
+    -- A previously selected spell can disappear only after manual SV editing.
+    -- Fall back cleanly instead of leaving the panel blank.
+    if selectedKey ~= "__OVERALL" and not db.records[selectedKey] then
+        selectedKey = "__OVERALL"
+        if frame.Dropdown then
+            UIDropDownMenu_SetSelectedValue(frame.Dropdown, selectedKey)
+            UIDropDownMenu_SetText(frame.Dropdown, "Highest Damage Ever")
+        end
+        r = db.overall
+    end
     if not r then
         frame.Icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
         frame.Ability:SetText("No damage records yet")
