@@ -48,5 +48,6 @@ RunBackIntegration.lua
 Modules\TaliaaTaunt.lua
 Modules\TaliaaBoats.lua
 Modules\RideOrDie.lua
+Modules\DamageRecords.lua
 VoidMarkUI.lua
 MCMarks.lua
