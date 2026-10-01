@@ -2785,10 +2785,20 @@ function GT:RecordKill(playerName, playerGUID)
     AddSessionKill(playerName)
     perfLastMS = PerfMark(perf, "session/streak", perfLastMS)
 
-    -- Kill Effects follows the same local accepted/deduplicated kill, regardless
-    -- of which callback/account happened to win the repository write race.
+    -- Kill Effects follows accepted kills. Hunters get a short grace period
+    -- because Classic can emit UNIT_DIED for Feign after an earlier kill-credit
+    -- path. This prevents fake deaths from firing Fatality/multikill audio.
     if VoidMarkKillEffects and VoidMarkKillEffects.OnKill then
-        VoidMarkKillEffects:OnKill(playerName, playerGUID, GT.currentStreak)
+        if IsKnownHunter(playerName, playerGUID) and C_Timer and C_Timer.After then
+            local effectName, effectGUID, effectStreak = playerName, playerGUID, GT.currentStreak
+            C_Timer.After(0.35, function()
+                if not GT:IsRecentFeign(effectName, effectGUID) then
+                    VoidMarkKillEffects:OnKill(effectName, effectGUID, effectStreak)
+                end
+            end)
+        else
+            VoidMarkKillEffects:OnKill(playerName, playerGUID, GT.currentStreak)
+        end
     end
     perfLastMS = PerfMark(perf, "Kill Effects", perfLastMS)
 
@@ -3878,15 +3888,17 @@ local function MarkHunterFeign(guid, name)
         local f = CreateFrame("Frame", nil, UIParent)
         f:SetSize(360, 70)
         f:SetPoint("CENTER", UIParent, "CENTER", 0, 150)
-        f:SetFrameStrata("DIALOG")
-        f.text = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        f:SetFrameStrata("FULLSCREEN_DIALOG")
+        f:SetFrameLevel(100)
+        f.text = f:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
         f.text:SetPoint("CENTER")
+        f.text:SetFont(STANDARD_TEXT_FONT, 32, "OUTLINE")
         f:Hide()
         GT._feignPopup = f
     end
     local popup = GT._feignPopup
     if popup then
-        popup.text:SetText("|cffffd200" .. short .. " FEIGN|r")
+        popup.text:SetText("|cffff2020" .. short .. " FEIGN|r")
         popup:Show()
         if C_Timer and C_Timer.After then
             local token = (popup._token or 0) + 1
