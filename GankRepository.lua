@@ -2228,55 +2228,81 @@ function Repo:GetStatisticsSnapshot()
     local out = {}
     if not history then return out end
 
-    local byKey = {}
-    for key, victim in pairs(history.victims or {}) do
-        if type(victim) == "table" then
-            local row = {
-                key = tostring(key),
-                name = tostring(victim.name or "?"),
-                guid = tostring(victim.guid or ""),
-                wins = tonumber(victim.kills) or 0,
-                time = tonumber(victim.lastKill) or 0,
-                zone = victim.lastZone,
-                subZone = victim.lastSubZone,
-                level = victim.lastLevel,
-                class = victim.lastClass,
-            }
-            byKey[tostring(key)] = row
-            out[#out + 1] = row
+    -- Build Statistics from authoritative event rows rather than the compact
+    -- victim index.  The event rows retain the actual last-seen metadata
+    -- (level/class/zone/time) that the historical floor records do not.
+    local byIdentity = {}
+
+    local function nameKey(name)
+        return "N:" .. ExactPlayerNameKey(tostring(name or "?"))
+    end
+
+    local function findRow(name, guid)
+        local g = tostring(guid or "")
+        if IsPlayerGUID(g) and byIdentity["G:" .. g] then
+            return byIdentity["G:" .. g]
+        end
+        return byIdentity[nameKey(name)]
+    end
+
+    for _, event in pairs(history.events or {}) do
+        if type(event) == "table" then
+            local name = tostring(event.name or "?")
+            local guid = tostring(event.guid or "")
+            local gkey = IsPlayerGUID(guid) and ("G:" .. guid) or nil
+            local nkey = nameKey(name)
+            local row = (gkey and byIdentity[gkey]) or byIdentity[nkey]
+
+            if not row then
+                row = {
+                    name = name,
+                    guid = guid,
+                    wins = 0,
+                    time = 0,
+                }
+                out[#out + 1] = row
+            end
+
+            if gkey then byIdentity[gkey] = row end
+            byIdentity[nkey] = row
+            row.wins = (tonumber(row.wins) or 0) + 1
+
+            local t = tonumber(event.t or event.time or event.timestamp) or 0
+            if t >= (tonumber(row.time) or 0) then
+                row.time = t
+                row.name = name
+                if guid ~= "" then row.guid = guid end
+                row.zone = event.zone
+                row.subZone = event.subZone
+                row.level = event.level
+                row.class = event.class
+            end
         end
     end
 
-    -- legacyGap represents real historical kills that predate timestamped event
-    -- rows. Add it to the matching victim, or create a history-only row.
+    -- Merge portable pre-event history without fabricating metadata.  Bind each
+    -- floor to the existing event/name row whenever possible so old kills add
+    -- to that player's total instead of creating a second '?' row.
     for key, entry in pairs(history.legacyFloors or {}) do
         if type(entry) == "table" then
             local gap = LegacyGapFromEntry(entry)
             if gap > 0 then
-                local skey = tostring(key)
-                local row = byKey[skey]
-                if not row and entry.name then
-                    local wanted = ExactPlayerNameKey(entry.name)
-                    for _, candidate in ipairs(out) do
-                        if ExactPlayerNameKey(candidate.name) == wanted then
-                            row = candidate
-                            break
-                        end
-                    end
-                end
-                if row then
-                    row.wins = (tonumber(row.wins) or 0) + gap
-                else
+                local name = tostring(entry.name or "?")
+                local guid = tostring(entry.guid or "")
+                local row = findRow(name, guid)
+
+                if not row then
                     row = {
-                        key = skey,
-                        name = tostring(entry.name or "?"),
-                        guid = tostring(entry.guid or ""),
-                        wins = gap,
+                        name = name,
+                        guid = guid,
+                        wins = 0,
                         time = tonumber(entry.capturedAt) or 0,
                     }
-                    byKey[skey] = row
                     out[#out + 1] = row
+                    if IsPlayerGUID(guid) then byIdentity["G:" .. guid] = row end
+                    byIdentity[nameKey(name)] = row
                 end
+                row.wins = (tonumber(row.wins) or 0) + gap
             end
         end
     end
