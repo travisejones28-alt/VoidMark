@@ -1029,19 +1029,8 @@ try {
     }
     Write-Info ("Recovered pre-rename Spy lifetime records + metadata: {0}" -f $mergedLegacySpyPlayers.Count)
 
-    # Diagnostic only: show every stored representation of one player so a
-    # suspicious lifetime total can be traced without changing or deleting data.
-    $traceName = "Healsfordaze"
-    [object[]]$trace = @()
-    foreach ($item in $mergedLegacySpyPlayers) { if ($null -ne $item -and [string]$item.Name -match ('(?i)^' + [regex]::Escape($traceName) + '(?:-|$)')) { $trace += $item } }
-    [object[]]$traceEvents = @()
-    foreach ($item in $mergedEvents) { if ($null -ne $item -and [string]$item.Name -match ('(?i)^' + [regex]::Escape($traceName) + '(?:-|$)')) { $traceEvents += $item } }
-    [object[]]$traceFloors = @()
-    foreach ($item in $mergedFloors) { if ($null -ne $item -and [string]$item.Name -match ('(?i)^' + [regex]::Escape($traceName) + '(?:-|$)')) { $traceFloors += $item } }
-    Write-Info ("TRACE {0}: legacy records={1} | timestamped kills={2} | historical floors={3}" -f $traceName, $trace.Count, $traceEvents.Count, $traceFloors.Count)
-    foreach ($p in $trace) { Write-Info ("TRACE legacy: {0} wins={1} time={2}" -f $p.Name, $p.Wins, $p.Time) }
-    foreach ($g in ($traceEvents | Group-Object Name,Guid)) { Write-Info ("TRACE events: {0} count={1}" -f $g.Name, $g.Count) }
-    foreach ($fl in $traceFloors) { Write-Info ("TRACE floor: {0} guid={1} gap={2} floor={3} repoAtCapture={4}" -f $fl.Name, $fl.Guid, $fl.Gap, $fl.Floor, $fl.RepoAtCapture) }
+    # Keep the production sync generic. Player-specific tracing was useful
+    # during the recovery investigation but should not remain in normal runs.
 
     $dhkMerge = Merge-DHKEvents -CandidateFiles $candidateFiles
     [object[]]$mergedDHKEvents = @()
