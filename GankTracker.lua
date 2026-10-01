@@ -3919,7 +3919,7 @@ local function MarkHunterFeign(guid, name)
         if C_Timer and C_Timer.After then
             local token = (popup._token or 0) + 1
             popup._token = token
-            C_Timer.After(5.0, function()
+            C_Timer.After(3.0, function()
                 if popup and popup._token == token then popup:Hide() end
             end)
         else
