@@ -3811,6 +3811,10 @@ local function IsUnitCurrentlyFeigningName(name)
     return false
 end
 
+function GT:IsUnitCurrentlyFeigningName(name)
+    return IsUnitCurrentlyFeigningName(name)
+end
+
 local function MarkHunterFeign(guid, name)
     local now = GetTime()
     if guid then
