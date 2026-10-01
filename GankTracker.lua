@@ -3867,6 +3867,12 @@ end
 local recentConfirmedPlayerKills = {}
 
 local function MarkHunterFeign(guid, name)
+    -- If a kill sound raced ahead of Classic's Feign classification, stop it
+    -- immediately when Feign is confirmed.
+    if VoidMarkKillEffects and VoidMarkKillEffects.StopActiveSound then
+        VoidMarkKillEffects:StopActiveSound()
+    end
+
     local now = GetTime()
     if guid then
         recentFeign[guid] = now
