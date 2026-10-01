@@ -2228,102 +2228,131 @@ function Repo:GetStatisticsSnapshot()
     local out = {}
     if not history then return out end
 
-    -- Build one row per repository victim, using the repository's normal
-    -- historical-count resolver for the lifetime Won total.  This is the same
-    -- resolver used by VoidMark/GankTracker, so Statistics cannot under-report
-    -- a player just because part of their old history lives in Spy/legacy data.
-    local byIdentity = {}
+    -- Statistics is a lifetime view.  Build identities from every surviving
+    -- source, then use the repository's normal historical resolver for totals.
+    -- Spy PlayerData is included here because it is where pre-repository lifetime
+    -- wins/losses and richer player metadata can still live.
+    local byGUID, byExact, byBase = {}, {}, {}
 
-    local function nameKey(name)
-        return "N:" .. ExactPlayerNameKey(tostring(name or "?"))
+    local function exactKey(name)
+        return ExactPlayerNameKey(tostring(name or ""))
     end
-
+    local function baseKey(name)
+        return ExactPlayerNameKey(BasePlayerNameText(tostring(name or "")))
+    end
     local function findRow(name, guid)
         local g = tostring(guid or "")
-        if IsPlayerGUID(g) and byIdentity["G:" .. g] then
-            return byIdentity["G:" .. g]
-        end
-        return byIdentity[nameKey(name)]
+        if IsPlayerGUID(g) and byGUID[g] then return byGUID[g] end
+        local e = exactKey(name)
+        if e ~= "" and byExact[e] then return byExact[e] end
+        local b = baseKey(name)
+        if b ~= "" and byBase[b] and byBase[b] ~= false then return byBase[b] end
+        return nil
     end
-
     local function bindRow(row)
-        local guid = tostring(row.guid or "")
-        if IsPlayerGUID(guid) then byIdentity["G:" .. guid] = row end
-        byIdentity[nameKey(row.name)] = row
+        local g = tostring(row.guid or "")
+        if IsPlayerGUID(g) then byGUID[g] = row end
+        local e = exactKey(row.name)
+        if e ~= "" then byExact[e] = row end
+        local b = baseKey(row.name)
+        if b ~= "" then
+            if byBase[b] == nil or byBase[b] == row then byBase[b] = row
+            else byBase[b] = false end
+        end
+    end
+    local function touch(name, guid)
+        local row = findRow(name, guid)
+        if not row then
+            row = { name = tostring(name or "?"), guid = tostring(guid or ""), time = 0 }
+            out[#out + 1] = row
+            bindRow(row)
+        elseif IsPlayerGUID(guid) and not IsPlayerGUID(row.guid) then
+            row.guid = tostring(guid)
+            bindRow(row)
+        end
+        return row
+    end
+    local function newer(row, t)
+        return (tonumber(t) or 0) >= (tonumber(row.time) or 0)
     end
 
-    -- First use event rows for last-seen metadata.
+    -- Rich Spy records first: preserve guild/rank/KOS/reason/losses and metadata.
+    local playerData = SpyPerCharDB and SpyPerCharDB.PlayerData
+    if type(playerData) == "table" then
+        for key, data in pairs(playerData) do
+            if type(data) == "table" then
+                local name = tostring(data.name or key or "?")
+                local guid = tostring(data.guid or data.GUID or "")
+                local row = touch(name, guid)
+                local t = tonumber(data.time) or 0
+                row.spyWins = math.max(tonumber(row.spyWins) or 0, tonumber(data.wins) or 0)
+                row.loses = math.max(tonumber(row.loses) or 0, tonumber(data.loses) or 0)
+                row.kos = row.kos or data.kos
+                row.reason = row.reason or data.reason
+                row.guild = data.guild or row.guild
+                row.rank = data.rank or row.rank
+                row.faction = data.faction or row.faction
+                if newer(row, t) then
+                    row.time = t
+                    row.level = data.level or row.level
+                    row.class = data.class or row.class
+                    row.zone = data.zone or row.zone
+                    row.subZone = data.subZone or row.subZone
+                end
+            end
+        end
+    end
+
+    -- Timestamped repository events provide authoritative last-kill metadata.
     for _, event in pairs(history.events or {}) do
-        if type(event) == "table" then
-            local name = tostring(event.name or "?")
-            local guid = tostring(event.guid or "")
-            local row = findRow(name, guid)
-
-            if not row then
-                row = { name = name, guid = guid, time = 0 }
-                out[#out + 1] = row
-                bindRow(row)
-            end
-
+        if type(event) == "table" and not IsExplicitNonPlayerGUID(event.guid) then
+            local row = touch(event.name, event.guid)
             local t = tonumber(event.t or event.time or event.timestamp) or 0
-            if t >= (tonumber(row.time) or 0) then
+            if newer(row, t) then
                 row.time = t
-                row.name = name
-                if guid ~= "" then row.guid = guid end
-                row.zone = event.zone
-                row.subZone = event.subZone
-                row.level = event.level
-                row.class = event.class
+                row.name = tostring(event.name or row.name or "?")
+                if IsPlayerGUID(event.guid) then row.guid = tostring(event.guid) end
+                row.zone = event.zone or row.zone
+                row.subZone = event.subZone or row.subZone
+                row.level = event.level or row.level
+                row.class = event.class or row.class
                 bindRow(row)
             end
         end
     end
 
-    -- Include victims/floors that have no surviving timestamped event row.
+    -- Victim index catches legitimate history whose individual event rows were
+    -- recovered/compacted in older builds.
     for _, victim in pairs(history.victims or {}) do
-        if type(victim) == "table" then
-            local name = tostring(victim.name or "?")
-            local guid = tostring(victim.guid or "")
-            local row = findRow(name, guid)
-            if not row then
-                row = {
-                    name = name,
-                    guid = guid,
-                    time = tonumber(victim.lastKill) or 0,
-                    zone = victim.lastZone,
-                    subZone = victim.lastSubZone,
-                    level = victim.lastLevel,
-                    class = victim.lastClass,
-                }
-                out[#out + 1] = row
-                bindRow(row)
+        if type(victim) == "table" and not IsExplicitNonPlayerGUID(victim.guid) then
+            local row = touch(victim.name, victim.guid)
+            local t = tonumber(victim.lastKill) or 0
+            if newer(row, t) then
+                row.time = t
+                row.zone = victim.lastZone or row.zone
+                row.subZone = victim.lastSubZone or row.subZone
+                row.level = victim.lastLevel or row.level
+                row.class = victim.lastClass or row.class
             end
         end
     end
 
+    -- Floors represent real pre-event kills. They may have no metadata, but they
+    -- must still create a Statistics identity instead of disappearing.
     for _, entry in pairs(history.legacyFloors or {}) do
         if type(entry) == "table" and LegacyGapFromEntry(entry) > 0 then
-            local name = tostring(entry.name or "?")
-            local guid = tostring(entry.guid or "")
-            local row = findRow(name, guid)
-            if not row then
-                row = {
-                    name = name,
-                    guid = guid,
-                    time = tonumber(entry.capturedAt) or 0,
-                }
-                out[#out + 1] = row
-                bindRow(row)
-            end
+            touch(entry.name, entry.guid)
         end
     end
 
-    -- Resolve the authoritative lifetime total after all identities are bound.
-    -- HistoricalCountWithFloor also repairs/binds old name-only history while
-    -- the Statistics window is open out of combat.
+    -- Resolve lifetime wins with the same deep resolver used by the rest of
+    -- VoidMark. Keep Spy losses because the kill repository does not reconstruct
+    -- deaths that were never recorded.
     for _, row in ipairs(out) do
         local total = HistoricalCountWithFloor(history, row.name, row.guid, true, true)
-        row.wins = tonumber(total) or 0
+        row.wins = math.max(tonumber(total) or 0, tonumber(row.spyWins) or 0)
+        row.loses = tonumber(row.loses) or 0
+        row.time = tonumber(row.time) or 0
     end
 
     return out
