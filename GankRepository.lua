@@ -2228,9 +2228,10 @@ function Repo:GetStatisticsSnapshot()
     local out = {}
     if not history then return out end
 
-    -- Build Statistics from authoritative event rows rather than the compact
-    -- victim index.  The event rows retain the actual last-seen metadata
-    -- (level/class/zone/time) that the historical floor records do not.
+    -- Build one row per repository victim, using the repository's normal
+    -- historical-count resolver for the lifetime Won total.  This is the same
+    -- resolver used by VoidMark/GankTracker, so Statistics cannot under-report
+    -- a player just because part of their old history lives in Spy/legacy data.
     local byIdentity = {}
 
     local function nameKey(name)
@@ -2245,27 +2246,24 @@ function Repo:GetStatisticsSnapshot()
         return byIdentity[nameKey(name)]
     end
 
+    local function bindRow(row)
+        local guid = tostring(row.guid or "")
+        if IsPlayerGUID(guid) then byIdentity["G:" .. guid] = row end
+        byIdentity[nameKey(row.name)] = row
+    end
+
+    -- First use event rows for last-seen metadata.
     for _, event in pairs(history.events or {}) do
         if type(event) == "table" then
             local name = tostring(event.name or "?")
             local guid = tostring(event.guid or "")
-            local gkey = IsPlayerGUID(guid) and ("G:" .. guid) or nil
-            local nkey = nameKey(name)
-            local row = (gkey and byIdentity[gkey]) or byIdentity[nkey]
+            local row = findRow(name, guid)
 
             if not row then
-                row = {
-                    name = name,
-                    guid = guid,
-                    wins = 0,
-                    time = 0,
-                }
+                row = { name = name, guid = guid, time = 0 }
                 out[#out + 1] = row
+                bindRow(row)
             end
-
-            if gkey then byIdentity[gkey] = row end
-            byIdentity[nkey] = row
-            row.wins = (tonumber(row.wins) or 0) + 1
 
             local t = tonumber(event.t or event.time or event.timestamp) or 0
             if t >= (tonumber(row.time) or 0) then
@@ -2276,35 +2274,56 @@ function Repo:GetStatisticsSnapshot()
                 row.subZone = event.subZone
                 row.level = event.level
                 row.class = event.class
+                bindRow(row)
             end
         end
     end
 
-    -- Merge portable pre-event history without fabricating metadata.  Bind each
-    -- floor to the existing event/name row whenever possible so old kills add
-    -- to that player's total instead of creating a second '?' row.
-    for key, entry in pairs(history.legacyFloors or {}) do
-        if type(entry) == "table" then
-            local gap = LegacyGapFromEntry(entry)
-            if gap > 0 then
-                local name = tostring(entry.name or "?")
-                local guid = tostring(entry.guid or "")
-                local row = findRow(name, guid)
-
-                if not row then
-                    row = {
-                        name = name,
-                        guid = guid,
-                        wins = 0,
-                        time = tonumber(entry.capturedAt) or 0,
-                    }
-                    out[#out + 1] = row
-                    if IsPlayerGUID(guid) then byIdentity["G:" .. guid] = row end
-                    byIdentity[nameKey(name)] = row
-                end
-                row.wins = (tonumber(row.wins) or 0) + gap
+    -- Include victims/floors that have no surviving timestamped event row.
+    for _, victim in pairs(history.victims or {}) do
+        if type(victim) == "table" then
+            local name = tostring(victim.name or "?")
+            local guid = tostring(victim.guid or "")
+            local row = findRow(name, guid)
+            if not row then
+                row = {
+                    name = name,
+                    guid = guid,
+                    time = tonumber(victim.lastKill) or 0,
+                    zone = victim.lastZone,
+                    subZone = victim.lastSubZone,
+                    level = victim.lastLevel,
+                    class = victim.lastClass,
+                }
+                out[#out + 1] = row
+                bindRow(row)
             end
         end
+    end
+
+    for _, entry in pairs(history.legacyFloors or {}) do
+        if type(entry) == "table" and LegacyGapFromEntry(entry) > 0 then
+            local name = tostring(entry.name or "?")
+            local guid = tostring(entry.guid or "")
+            local row = findRow(name, guid)
+            if not row then
+                row = {
+                    name = name,
+                    guid = guid,
+                    time = tonumber(entry.capturedAt) or 0,
+                }
+                out[#out + 1] = row
+                bindRow(row)
+            end
+        end
+    end
+
+    -- Resolve the authoritative lifetime total after all identities are bound.
+    -- HistoricalCountWithFloor also repairs/binds old name-only history while
+    -- the Statistics window is open out of combat.
+    for _, row in ipairs(out) do
+        local total = HistoricalCountWithFloor(history, row.name, row.guid, true, true)
+        row.wins = tonumber(total) or 0
     end
 
     return out
