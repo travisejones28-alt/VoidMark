@@ -558,7 +558,7 @@ function Merge-DHKEvents {
     }
 }
 
-function Get-LegacySpyWins {
+function Get-LegacySpyPlayers {
     param([string]$Text)
     $out = @{}
     $rx = New-Object System.Text.RegularExpressions.Regex('\["PlayerData"\]\s*=\s*\{')
@@ -581,9 +581,30 @@ function Get-LegacySpyWins {
             $name = $em.Groups[1].Value
             $wins = [int64](Get-LuaNumberField -TableText $raw -Field 'wins')
             if ($name -and $wins -gt 0) {
+                $p = [pscustomobject]@{
+                    Name=$name; Wins=$wins
+                    Time=[int64](Get-LuaNumberField -TableText $raw -Field 'time')
+                    Level=[int](Get-LuaNumberField -TableText $raw -Field 'level')
+                    Rank=[int](Get-LuaNumberField -TableText $raw -Field 'rank')
+                    Class=(Get-LuaStringField -TableText $raw -Field 'class')
+                    Guild=(Get-LuaStringField -TableText $raw -Field 'guild')
+                    Zone=(Get-LuaStringField -TableText $raw -Field 'zone')
+                    SubZone=(Get-LuaStringField -TableText $raw -Field 'subZone')
+                    Faction=(Get-LuaStringField -TableText $raw -Field 'faction')
+                }
                 $k = $name.ToLowerInvariant()
-                if (-not $out.ContainsKey($k) -or $wins -gt [int64]$out[$k].Wins) {
-                    $out[$k] = [pscustomobject]@{ Name=$name; Wins=$wins }
+                if (-not $out.ContainsKey($k)) {
+                    $out[$k] = $p
+                } else {
+                    $old = $out[$k]
+                    if ($p.Wins -gt $old.Wins) { $old.Wins = $p.Wins }
+                    if ($p.Time -gt $old.Time) {
+                        $old.Time=$p.Time
+                        foreach ($field in @('Level','Rank','Class','Guild','Zone','SubZone','Faction')) {
+                            $v=$p.$field
+                            if (($v -is [string] -and $v) -or ($v -isnot [string] -and [int64]$v -gt 0)) { $old.$field=$v }
+                        }
+                    }
                 }
             }
             $i = $ec + 1
@@ -593,12 +614,21 @@ function Get-LegacySpyWins {
     return $out
 }
 
-function Set-LegacySpyWins {
+function Set-LegacySpyPlayers {
     param([string]$Text, $Players)
     $newline = if ($Text.Contains("`r`n")) { "`r`n" } else { "`n" }
     $lines = New-Object System.Collections.Generic.List[string]
     foreach ($p in @($Players)) {
-        $lines.Add('["' + (Escape-LuaString $p.Name) + '"] = {["wins"] = ' + [int64]$p.Wins + '},')
+        $fields = New-Object System.Collections.Generic.List[string]
+        $fields.Add('["wins"] = ' + [int64]$p.Wins)
+        if ([int64]$p.Time -gt 0) { $fields.Add('["time"] = ' + [int64]$p.Time) }
+        if ([int]$p.Level -gt 0) { $fields.Add('["level"] = ' + [int]$p.Level) }
+        if ([int]$p.Rank -gt 0) { $fields.Add('["rank"] = ' + [int]$p.Rank) }
+        foreach ($pair in @(@('Class','class'),@('Guild','guild'),@('Zone','zone'),@('SubZone','subZone'),@('Faction','faction'))) {
+            $v = [string]$p.($pair[0])
+            if ($v) { $fields.Add('["' + $pair[1] + '"] = "' + (Escape-LuaString $v) + '"') }
+        }
+        $lines.Add('["' + (Escape-LuaString $p.Name) + '"] = {' + ($fields -join ', ') + '},')
     }
     $assignment = 'SpyDB["VoidMarkLegacyPlayers"] = {' + $newline + ($lines -join $newline) + $newline + '}'
     $rx = New-Object System.Text.RegularExpressions.Regex('SpyDB\["VoidMarkLegacyPlayers"\]\s*=\s*\{')
@@ -810,7 +840,7 @@ try {
                     Events = $events
                     Target = $target
                     Floors = $floors
-                    LegacySpyWins = (Get-LegacySpyWins -Text $text)
+                    LegacySpyPlayers = (Get-LegacySpyPlayers -Text $text)
                     DHKEvents = $dhkEvents
                     DHKTarget = $dhkTarget
                 })
@@ -945,20 +975,29 @@ try {
     [object[]]$mergedFloors = @($floorByIdentity.Values | Sort-Object Identity)
     Write-Info ("Merged historical floors: {0}" -f $mergedFloors.Count)
 
-    # Recover the old Spy PlayerData lifetime counters from TaliaaSpy.lua.
-    # The addon rename changed the SavedVariables filename, so these otherwise
-    # remain stranded even though the underlying SpyDB variable name is unchanged.
-    $legacySpyWins = @{}
+    # Recover pre-rename PlayerData. Wins are max-only; metadata comes from the
+    # newest record and never reduces or deletes historical counts.
+    $legacySpyPlayers = @{}
     foreach ($cf in $candidateFiles) {
-        foreach ($k in @($cf.LegacySpyWins.Keys)) {
-            $p = $cf.LegacySpyWins[$k]
-            if (-not $legacySpyWins.ContainsKey($k) -or [int64]$p.Wins -gt [int64]$legacySpyWins[$k].Wins) {
-                $legacySpyWins[$k] = $p
+        foreach ($k in @($cf.LegacySpyPlayers.Keys)) {
+            $p = $cf.LegacySpyPlayers[$k]
+            if (-not $legacySpyPlayers.ContainsKey($k)) {
+                $legacySpyPlayers[$k] = $p
+            } else {
+                $old = $legacySpyPlayers[$k]
+                if ([int64]$p.Wins -gt [int64]$old.Wins) { $old.Wins = $p.Wins }
+                if ([int64]$p.Time -gt [int64]$old.Time) {
+                    $old.Time=$p.Time
+                    foreach ($field in @('Level','Rank','Class','Guild','Zone','SubZone','Faction')) {
+                        $v=$p.$field
+                        if (($v -is [string] -and $v) -or ($v -isnot [string] -and [int64]$v -gt 0)) { $old.$field=$v }
+                    }
+                }
             }
         }
     }
-    [object[]]$mergedLegacySpyWins = @($legacySpyWins.Values | Sort-Object Name)
-    Write-Info ("Recovered pre-rename Spy lifetime records: {0}" -f $mergedLegacySpyWins.Count)
+    [object[]]$mergedLegacySpyPlayers = @($legacySpyPlayers.Values | Sort-Object Name)
+    Write-Info ("Recovered pre-rename Spy lifetime records + metadata: {0}" -f $mergedLegacySpyPlayers.Count)
     $dhkMerge = Merge-DHKEvents -CandidateFiles $candidateFiles
     [object[]]$mergedDHKEvents = @($dhkMerge.Events)
     Write-Info ("Merged DHKs: {0} | retransmits removed: {1} | ID collisions repaired: {2}" -f $mergedDHKEvents.Count, $dhkMerge.Dropped, $dhkMerge.Collisions)
@@ -994,7 +1033,7 @@ try {
         # Expose the most recent successful file merge to the addon next login.
         $unixNow = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
         $newText = Set-OfflineSyncMarker -Text $newText -Timestamp $unixNow -MergedCount $mergedEvents.Count
-        $newText = Set-LegacySpyWins -Text $newText -Players $mergedLegacySpyWins
+        $newText = Set-LegacySpyPlayers -Text $newText -Players $mergedLegacySpyPlayers
 
         if ($DryRun) {
             Write-Info ("DRY RUN: would update {0}\{1}" -f $cf.Account, $cf.File.Name)
