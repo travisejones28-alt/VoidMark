@@ -2801,6 +2801,7 @@ function GT:RecordKill(playerName, playerGUID)
         end
     end
     perfLastMS = PerfMark(perf, "Kill Effects", perfLastMS)
+    -- Feign warning / kill-effect validation refresh marker.
 
     local todayVictimKills
     if repositoryAdded == false then
