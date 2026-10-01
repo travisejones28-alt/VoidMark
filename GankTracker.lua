@@ -2580,11 +2580,17 @@ local function StreakFlavor(streak)
     streak = tonumber(streak) or 0
     if streak < 5 or streak % 5 ~= 0 then return nil end
 
-    local pool = STREAK_FLAVOR[streak]
-    if not pool and streak > 40 then
-        pool = STREAK_FALLBACK
+    -- Five kills unlocks the nonsense pool. From then on every 5-kill
+    -- milestone can draw from every line instead of being tier-locked.
+    local pool = {}
+    for _, milestonePool in pairs(STREAK_FLAVOR) do
+        for _, line in ipairs(milestonePool) do
+            pool[#pool + 1] = line
+        end
     end
-
+    for _, line in ipairs(STREAK_FALLBACK) do
+        pool[#pool + 1] = line
+    end
     return PickStreakFlavor(pool)
 end
 
