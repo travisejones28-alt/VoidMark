@@ -2472,6 +2472,17 @@ function Repo:GetStatisticsSnapshot()
             if type(legacyData) == "table" and (tonumber(legacyData.wins) or 0) > 0 then
                 local row = touch(legacyName, "")
                 row.legacyWins = math.max(tonumber(row.legacyWins) or 0, tonumber(legacyData.wins) or 0)
+                local t = tonumber(legacyData.time) or 0
+                row.guild = (legacyData.guild and legacyData.guild ~= "") and legacyData.guild or row.guild
+                row.rank = (tonumber(legacyData.rank) or 0) > 0 and legacyData.rank or row.rank
+                row.faction = (legacyData.faction and legacyData.faction ~= "") and legacyData.faction or row.faction
+                if t >= (tonumber(row.time) or 0) then
+                    row.time = t > 0 and t or row.time
+                    row.level = (tonumber(legacyData.level) or 0) > 0 and legacyData.level or row.level
+                    row.class = (legacyData.class and legacyData.class ~= "") and legacyData.class or row.class
+                    row.zone = (legacyData.zone and legacyData.zone ~= "") and legacyData.zone or row.zone
+                    row.subZone = (legacyData.subZone and legacyData.subZone ~= "") and legacyData.subZone or row.subZone
+                end
             end
         end
     end
