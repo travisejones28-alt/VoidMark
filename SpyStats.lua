@@ -382,36 +382,98 @@ end
 
 function SpyStats:Recalulate()
     if not self:IsShown() or not self:IsEnabled() then
-		return
-	end
+        return
+    end
 
     self.newevents = false
     SpyStatsRefreshButton:UnlockHighlight()
 
     local tab = PanelTemplates_GetSelectedTab(SpyStatsTabFrame)
-
     local i = 1
     local totalWins = 0
     local totalLoses = 0
 
     if tab == TAB_PLAYER then
+        -- Start with Spy's player database so KOS/reason/guild/rank/loss data
+        -- remains available, then overlay the permanent GankRepository history.
+        local byExactName = {}
         for _, unit in SpyData:GetPlayers(self.sortBy) do
-            units.recent[i] = unit
+            if unit and unit.name then
+                local key = string.lower(tostring(unit.name))
+                byExactName[key] = unit
+                units.recent[i] = unit
+                i = i + 1
+            end
+        end
+
+        local repo = TaliaaGankRepository
+        if repo and repo.GetStatisticsSnapshot then
+            local historyRows = repo:GetStatisticsSnapshot()
+            for _, hist in ipairs(historyRows or {}) do
+                local key = string.lower(tostring(hist.name or ""))
+                local unit = byExactName[key]
+
+                if unit then
+                    -- Repository wins are authoritative. Never add Spy wins on
+                    -- top, because many of those kills are already represented
+                    -- by repository events/floors.
+                    unit.wins = math.max(tonumber(unit.wins) or 0, tonumber(hist.wins) or 0)
+                    if (tonumber(hist.time) or 0) > (tonumber(unit.time) or 0) then
+                        unit.time = tonumber(hist.time) or unit.time
+                        unit.zone = hist.zone or unit.zone
+                        unit.subZone = hist.subZone or unit.subZone
+                        unit.level = hist.level or unit.level
+                        unit.class = hist.class or unit.class
+                    end
+                else
+                    -- A historical victim no longer present in Spy's current
+                    -- PlayerData still belongs in Statistics.
+                    unit = {
+                        name = hist.name,
+                        guid = hist.guid,
+                        level = hist.level or "?",
+                        rank = 0,
+                        class = hist.class,
+                        guild = "?",
+                        wins = tonumber(hist.wins) or 0,
+                        loses = 0,
+                        time = tonumber(hist.time) or 0,
+                        zone = hist.zone,
+                        subZone = hist.subZone,
+                        reason = nil,
+                        kos = false,
+                    }
+                    units.recent[i] = unit
+                    byExactName[key] = unit
+                    i = i + 1
+                end
+            end
+        end
+
+        -- Sort the merged list. Time remains the default Statistics ordering.
+        table.sort(units.recent, function(a, b)
+            local sortBy = self.sortBy
+            if sortBy == "name" then
+                return tostring(a.name or "") < tostring(b.name or "")
+            elseif sortBy == "wins" then
+                return (tonumber(a.wins) or 0) > (tonumber(b.wins) or 0)
+            elseif sortBy == "loses" then
+                return (tonumber(a.loses) or 0) > (tonumber(b.loses) or 0)
+            end
+            return (tonumber(a.time) or 0) > (tonumber(b.time) or 0)
+        end)
+
+        for _, unit in ipairs(units.recent) do
             totalWins = totalWins + (tonumber(unit.wins) or 0)
             totalLoses = totalLoses + (tonumber(unit.loses) or 0)
-            i = i + 1
         end
     end
 
     self.VoidMarkSummary = {
-        marks = i - 1,
+        marks = #units.recent,
         wins = totalWins,
         loses = totalLoses,
     }
-
-    for j = i, #units.recent do
-		units.recent[j] = nil
-	end
 
     self:Filter()
 end
