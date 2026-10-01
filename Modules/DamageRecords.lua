@@ -7,11 +7,11 @@ local function DB()
     SpyDB = SpyDB or {}
     SpyDB.VoidMarkDamageRecords = SpyDB.VoidMarkDamageRecords or {
         version = 1,
-        yellAnnounce = true,
+        partyAnnounce = true,
         records = {},
     }
     local db = SpyDB.VoidMarkDamageRecords
-    if db.yellAnnounce == nil then db.yellAnnounce = true end
+    if db.partyAnnounce == nil then db.partyAnnounce = true end
     db.records = db.records or {}
     return db
 end
@@ -80,23 +80,14 @@ local function SelfNotice(record)
     )
 end
 
-local function YellMessage(record)
-    local prefix = record.critical and "NEW HIGH CRIT!" or "NEW HIGH HIT!"
-    return prefix .. " " .. AbilityLabel(record) .. " - "
-        .. tostring(record.amount) .. " vs " .. ShortTarget(record.targetName)
-end
-
 local banner
 local function ShowBanner(record)
     if not UIParent then return end
     if not banner then
-        -- A plain Frame is used intentionally. Classic Era Frame objects do not
-        -- support RegisterForClicks; OnMouseUp gives us the hardware click.
         banner = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
         banner:SetSize(440, 72)
         banner:SetPoint("TOP", UIParent, "TOP", 0, -170)
         banner:SetFrameStrata("DIALOG")
-        banner:EnableMouse(true)
         banner:SetBackdrop({
             bgFile = "Interface\\Buttons\\WHITE8X8",
             edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -111,48 +102,20 @@ local function ShowBanner(record)
         banner.Title:SetPoint("TOPLEFT", banner.Icon, "TOPRIGHT", 12, -1)
         banner.Value = banner:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         banner.Value:SetPoint("TOPLEFT", banner.Title, "BOTTOMLEFT", 0, -7)
-        banner:SetScript("OnMouseUp", function(self, button)
-            if button ~= "LeftButton" then return end
-            if self._yellMessage and SendChatMessage then
-                SendChatMessage(self._yellMessage, "YELL")
-                self._yellMessage = nil
-                if self.Title then self.Title:SetText("YELLED") end
-            end
-        end)
         banner:Hide()
     end
 
-    -- Always populate the complete banner after creation. This avoids a partial
-    -- first-use frame if one optional API is unavailable on Classic Era.
-    if banner.Icon then
-        banner.Icon:SetTexture(record.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
-        banner.Icon:Show()
-    end
-
-    local db = DB()
-    if banner.Title then
-        if db.yellAnnounce then
-            banner.Title:SetText((record.critical and "NEW HIGH CRIT" or "NEW HIGH HIT") .. "  •  CLICK TO YELL")
-            banner._yellMessage = YellMessage(record)
-        else
-            banner.Title:SetText(record.critical and "NEW HIGH CRIT" or "NEW HIGH HIT")
-            banner._yellMessage = nil
-        end
-    end
-    if banner.Value then
-        banner.Value:SetText(AbilityLabel(record) .. "  •  " .. tostring(record.amount)
-            .. "  →  " .. ShortTarget(record.targetName))
-    end
+    banner.Icon:SetTexture(record.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+    banner.Title:SetText(record.critical and "NEW HIGH CRIT" or "NEW HIGH HIT")
+    banner.Value:SetText(AbilityLabel(record) .. "  •  " .. tostring(record.amount)
+        .. "  →  " .. ShortTarget(record.targetName))
     banner:Show()
 
     local token = (banner._token or 0) + 1
     banner._token = token
     if C_Timer and C_Timer.After then
         C_Timer.After(3.0, function()
-            if banner and banner._token == token then
-                banner._yellMessage = nil
-                banner:Hide()
-            end
+            if banner and banner._token == token then banner:Hide() end
         end)
     end
 end
@@ -198,10 +161,15 @@ local function SaveRecord(kind, spellID, spellName, amount, critical, destGUID, 
         for k, v in pairs(record) do db.overall[k] = v end
     end
 
-    -- Chat sending is protected when this fires from the combat log. When YELL
-    -- is enabled, the banner becomes the hardware-click that sends it. When
-    -- YELL is disabled, keep the private VoidMark notification.
-    if not db.yellAnnounce then
+    -- Party announce is only used for an actual party. Solo and raid both
+    -- receive the private VoidMark notification instead.
+    local inRaid = IsInRaid and IsInRaid()
+    local inGroup = IsInGroup and IsInGroup()
+    if db.partyAnnounce and inGroup and not inRaid and SendChatMessage then
+        local prefix = record.critical and "NEW HIGH CRIT!" or "NEW HIGH HIT!"
+        SendChatMessage(prefix .. " " .. AbilityLabel(record) .. " - "
+            .. tostring(record.amount) .. " vs " .. ShortTarget(record.targetName), "PARTY")
+    else
         SelfNotice(record)
     end
     ShowBanner(record)
@@ -259,7 +227,7 @@ function DR:Refresh()
     if not frame then return end
     local db = DB()
     local r = SelectedRecord()
-    frame.PartyButton.Text:SetText(db.yellAnnounce and "YELL ANNOUNCE: ON" or "YELL ANNOUNCE: OFF")
+    frame.PartyButton.Text:SetText(db.partyAnnounce and "PARTY ANNOUNCE: ON" or "PARTY ANNOUNCE: OFF")
     -- A previously selected spell can disappear only after manual SV editing.
     -- Fall back cleanly instead of leaving the panel blank.
     if selectedKey ~= "__OVERALL" and not db.records[selectedKey] then
@@ -375,7 +343,7 @@ local function BuildUI()
     frame.PartyButton.Text:SetAllPoints()
     frame.PartyButton:SetScript("OnClick", function()
         local db = DB()
-        db.yellAnnounce = not db.yellAnnounce
+        db.partyAnnounce = not db.partyAnnounce
         DR:Refresh()
     end)
 
@@ -401,7 +369,7 @@ local function BuildUI()
 end
 
 StaticPopupDialogs["VOIDMARK_RESET_DAMAGE_RECORDS"] = {
-    text = "Reset ALL VoidMark damage records?\n\nThis clears the highest hit for every ability and the overall record. Your Yell Announce setting will be kept.",
+    text = "Reset ALL VoidMark damage records?\n\nThis clears the highest hit for every ability and the overall record. Your Party Announce setting will be kept.",
     button1 = "RESET",
     button2 = CANCEL,
     OnAccept = function()
