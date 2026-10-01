@@ -2051,27 +2051,38 @@ UpdatePanicDisplay = function(forcedCount)
         label:SetText("PANIC\n" .. tostring(count))
     end
 
+    local br, bg, bb, lr, lg, lb, ar, ag, ab
     if count >= 6 then
+        br,bg,bb = 1.00,0.16,0.12
+        lr,lg,lb = 1.00,0.94,0.92
+        ar,ag,ab = 1.00,0.12,0.08
         button:SetBackdropColor(0.58, 0.010, 0.025, 0.99)
-        button:SetBackdropBorderColor(1.00, 0.16, 0.12, 1)
-        label:SetTextColor(1.00, 0.94, 0.92, 1)
-        if button.Accent then button.Accent:SetVertexColor(1.00, 0.12, 0.08, 1) end
     elseif count >= 3 then
+        br,bg,bb = 0.95,0.12,0.18
+        lr,lg,lb = 1.00,0.82,0.82
+        ar,ag,ab = 0.95,0.10,0.18
         button:SetBackdropColor(0.46, 0.020, 0.045, 0.99)
-        button:SetBackdropBorderColor(0.95, 0.12, 0.18, 1)
-        label:SetTextColor(1.00, 0.82, 0.82, 1)
-        if button.Accent then button.Accent:SetVertexColor(0.95, 0.10, 0.18, 1) end
     elseif count >= 1 then
+        br,bg,bb = 0.78,0.16,0.32
+        lr,lg,lb = 1.00,0.58,0.68
+        ar,ag,ab = 0.78,0.16,0.32
         button:SetBackdropColor(0.28, 0.025, 0.070, 0.98)
-        button:SetBackdropBorderColor(0.78, 0.16, 0.32, 1)
-        label:SetTextColor(1.00, 0.58, 0.68, 1)
-        if button.Accent then button.Accent:SetVertexColor(0.78, 0.16, 0.32, 1) end
     else
+        br,bg,bb = 0.48,0.20,0.68
+        lr,lg,lb = 0.82,0.60,0.96
+        ar,ag,ab = 0.56,0.20,0.82
         button:SetBackdropColor(0.075, 0.025, 0.11, 0.97)
-        button:SetBackdropBorderColor(0.48, 0.20, 0.68, 1)
-        label:SetTextColor(0.82, 0.60, 0.96, 1)
-        if button.Accent then button.Accent:SetVertexColor(0.56, 0.20, 0.82, 1) end
     end
+
+    button:SetBackdropBorderColor(br,bg,bb,1)
+    label:SetTextColor(lr,lg,lb,1)
+    if button.Accent then button.Accent:SetVertexColor(ar,ag,ab,1) end
+    if button.StyleDiamond then button.StyleDiamond:SetVertexColor(ar*0.34,ag*0.34,ab*0.34,0.96) end
+    if button.StyleRing then button.StyleRing:SetVertexColor(br,bg,bb,1) end
+    if button.StyleRingGlow then button.StyleRingGlow:SetVertexColor(ar,ag,ab,1) end
+    if button.BannerLeft then button.BannerLeft:SetVertexColor(ar*0.55,ag*0.55,ab*0.55,1) end
+    if button.BannerRight then button.BannerRight:SetVertexColor(ar*0.55,ag*0.55,ab*0.55,1) end
+    if button.VoidGlow then button.VoidGlow:SetVertexColor(ar,ag,ab,1) end
 end
 function GT:NoteEnemySeen(playerName, timestamp, source)
     if not playerName or playerName == "" then
@@ -3905,6 +3916,46 @@ panicFrame.Button.Icon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIc
 panicFrame.Button.Icon:SetSize(24, 24)
 panicFrame.Button.Icon:SetPoint("TOP", panicFrame.Button, "TOP", 0, -5)
 
+-- Style artwork is built once and then shown/hidden by RefreshPanicStyle().
+-- This keeps the Panic control as one draggable/clickable frame while making
+-- each dropdown choice a genuinely different composition instead of a resized
+-- rectangle.
+panicFrame.Button.StyleDiamond = panicFrame.Button:CreateTexture(nil, "BACKGROUND", nil, -1)
+panicFrame.Button.StyleDiamond:SetTexture("Interface\\Buttons\\WHITE8X8")
+panicFrame.Button.StyleDiamond:SetSize(47, 47)
+panicFrame.Button.StyleDiamond:SetPoint("CENTER")
+if panicFrame.Button.StyleDiamond.SetRotation then
+    panicFrame.Button.StyleDiamond:SetRotation(math.rad(45))
+end
+
+panicFrame.Button.StyleRing = panicFrame.Button:CreateTexture(nil, "BACKGROUND", nil, -1)
+panicFrame.Button.StyleRing:SetTexture("Interface\\Buttons\\UI-Quickslot2")
+panicFrame.Button.StyleRing:SetSize(66, 66)
+panicFrame.Button.StyleRing:SetPoint("CENTER")
+
+panicFrame.Button.StyleRingGlow = panicFrame.Button:CreateTexture(nil, "BACKGROUND", nil, -2)
+panicFrame.Button.StyleRingGlow:SetTexture("Interface\\Buttons\\UI-Quickslot2")
+panicFrame.Button.StyleRingGlow:SetSize(76, 76)
+panicFrame.Button.StyleRingGlow:SetPoint("CENTER")
+panicFrame.Button.StyleRingGlow:SetBlendMode("ADD")
+panicFrame.Button.StyleRingGlow:SetAlpha(0.32)
+
+panicFrame.Button.BannerLeft = panicFrame.Button:CreateTexture(nil, "BACKGROUND", nil, -1)
+panicFrame.Button.BannerLeft:SetTexture("Interface\\Buttons\\WHITE8X8")
+panicFrame.Button.BannerLeft:SetSize(18, 18)
+if panicFrame.Button.BannerLeft.SetRotation then panicFrame.Button.BannerLeft:SetRotation(math.rad(45)) end
+
+panicFrame.Button.BannerRight = panicFrame.Button:CreateTexture(nil, "BACKGROUND", nil, -1)
+panicFrame.Button.BannerRight:SetTexture("Interface\\Buttons\\WHITE8X8")
+panicFrame.Button.BannerRight:SetSize(18, 18)
+if panicFrame.Button.BannerRight.SetRotation then panicFrame.Button.BannerRight:SetRotation(math.rad(45)) end
+
+panicFrame.Button.VoidGlow = panicFrame.Button:CreateTexture(nil, "BACKGROUND", nil, -2)
+panicFrame.Button.VoidGlow:SetTexture("Interface\\Buttons\\WHITE8X8")
+panicFrame.Button.VoidGlow:SetPoint("CENTER")
+panicFrame.Button.VoidGlow:SetBlendMode("ADD")
+panicFrame.Button.VoidGlow:SetAlpha(0.18)
+
 panicFrame.Button.Accent = panicFrame.Button:CreateTexture(nil, "BORDER")
 panicFrame.Button.Accent:SetTexture("Interface\\Buttons\\WHITE8X8")
 panicFrame.Button.Accent:SetPoint("BOTTOMLEFT", panicFrame.Button, "BOTTOMLEFT", 2, 2)
@@ -3945,42 +3996,101 @@ RefreshPanicStyle = function()
     button.Label:ClearAllPoints()
     button.Icon:ClearAllPoints()
     button.Icon:Show()
-    button.Accent:Show()
+    button.Accent:Hide()
+    button.StyleDiamond:Hide()
+    button.StyleRing:Hide()
+    button.StyleRingGlow:Hide()
+    button.BannerLeft:Hide()
+    button.BannerRight:Hide()
+    button.VoidGlow:Hide()
 
-    -- One live frame, four distinct compositions. The frame itself survives
-    -- every switch, preserving drag position, visibility and click scripts.
+    -- Reset to a transparent button; each style opts into only the visual
+    -- pieces it actually uses.
+    button:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1,
+    })
+    button:SetBackdropColor(0.035, 0.010, 0.050, 0.96)
+    button:SetBackdropBorderColor(0.48, 0.20, 0.68, 1)
+
     if style == "banner" then
-        panicFrame:SetSize(168, 40)
-        button:SetPoint("TOPLEFT", panicFrame, "TOPLEFT", 3, -3)
-        button:SetPoint("BOTTOMRIGHT", panicFrame, "BOTTOMRIGHT", -3, 3)
-        button.Icon:SetSize(23, 23)
+        -- Wide emergency banner: skull badge, single-line copy, pointed ends.
+        panicFrame:SetSize(190, 46)
+        button:SetPoint("TOPLEFT", panicFrame, "TOPLEFT", 7, -6)
+        button:SetPoint("BOTTOMRIGHT", panicFrame, "BOTTOMRIGHT", -7, 6)
+        button:SetBackdrop({
+            bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            edgeSize = 9,
+            insets = {left=2,right=2,top=2,bottom=2},
+        })
+        button.Icon:SetSize(28, 28)
         button.Icon:SetPoint("LEFT", button, "LEFT", 9, 0)
-        button.Label:SetPoint("LEFT", button.Icon, "RIGHT", 7, 0)
+        button.Label:SetPoint("LEFT", button.Icon, "RIGHT", 8, 0)
         button.Label:SetFontObject("GameFontNormal")
+        button.Accent:Show()
+        button.BannerLeft:ClearAllPoints()
+        button.BannerLeft:SetPoint("CENTER", button, "LEFT", 1, 0)
+        button.BannerLeft:Show()
+        button.BannerRight:ClearAllPoints()
+        button.BannerRight:SetPoint("CENTER", button, "RIGHT", -1, 0)
+        button.BannerRight:Show()
+
     elseif style == "diamond" then
-        panicFrame:SetSize(68, 68)
-        button:SetPoint("TOPLEFT", panicFrame, "TOPLEFT", 8, -8)
-        button:SetPoint("BOTTOMRIGHT", panicFrame, "BOTTOMRIGHT", -8, 8)
-        button.Icon:SetSize(20, 20)
-        button.Icon:SetPoint("TOP", button, "TOP", 0, -4)
-        button.Label:SetPoint("BOTTOM", button, "BOTTOM", 0, 5)
+        -- Compact rotated diamond plate with the skull centered above the count.
+        panicFrame:SetSize(86, 86)
+        button:SetPoint("CENTER", panicFrame, "CENTER", 0, 0)
+        button:SetSize(70, 70)
+        button:SetBackdrop({
+            bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            edgeSize = 8,
+            insets = {left=3,right=3,top=3,bottom=3},
+        })
+        button:SetBackdropColor(0,0,0,0)
+        button:SetBackdropBorderColor(0,0,0,0)
+        button.StyleDiamond:Show()
+        button.Icon:SetSize(26, 26)
+        button.Icon:SetPoint("CENTER", button, "CENTER", 0, 8)
+        button.Label:SetPoint("CENTER", button, "CENTER", 0, -17)
         button.Label:SetFontObject("GameFontNormalSmall")
+
     elseif style == "ring" then
-        panicFrame:SetSize(92, 52)
-        button:SetPoint("TOPLEFT", panicFrame, "TOPLEFT", 5, -5)
-        button:SetPoint("BOTTOMRIGHT", panicFrame, "BOTTOMRIGHT", -5, 5)
-        button.Icon:SetSize(25, 25)
-        button.Icon:SetPoint("LEFT", button, "LEFT", 7, 0)
-        button.Label:SetPoint("LEFT", button.Icon, "RIGHT", 5, 0)
-        button.Label:SetFontObject("GameFontNormal")
-    else
-        panicFrame:SetSize(72, 72)
-        button:SetPoint("TOPLEFT", panicFrame, "TOPLEFT", 5, -5)
-        button:SetPoint("BOTTOMRIGHT", panicFrame, "BOTTOMRIGHT", -5, 5)
+        -- True circular alert badge using Blizzard's quickslot ring artwork.
+        panicFrame:SetSize(84, 84)
+        button:SetPoint("CENTER", panicFrame, "CENTER", 0, 0)
+        button:SetSize(72, 72)
+        button:SetBackdropColor(0,0,0,0)
+        button:SetBackdropBorderColor(0,0,0,0)
+        button.StyleRingGlow:Show()
+        button.StyleRing:Show()
         button.Icon:SetSize(27, 27)
-        button.Icon:SetPoint("TOP", button, "TOP", 0, -5)
-        button.Label:SetPoint("BOTTOM", button, "BOTTOM", 0, 6)
+        button.Icon:SetPoint("CENTER", button, "CENTER", 0, 8)
+        button.Label:SetPoint("CENTER", button, "CENTER", 0, -17)
+        button.Label:SetFontObject("GameFontNormalSmall")
+
+    else
+        -- Void Skull: tall occult plate, oversized skull and purple void glow.
+        panicFrame:SetSize(94, 104)
+        button:SetPoint("TOPLEFT", panicFrame, "TOPLEFT", 5, -5)
+        button:SetPoint("BOTTOMRIGHT", panicFrame, "BOTTOMRIGHT", -5, 5)
+        button:SetBackdrop({
+            bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            edgeSize = 11,
+            insets = {left=3,right=3,top=3,bottom=3},
+        })
+        button.VoidGlow:ClearAllPoints()
+        button.VoidGlow:SetPoint("CENTER", button, "CENTER", 0, -1)
+        button.VoidGlow:SetSize(68, 78)
+        button.VoidGlow:Show()
+        button.Icon:SetSize(39, 39)
+        button.Icon:SetPoint("TOP", button, "TOP", 0, -8)
+        button.Label:SetPoint("BOTTOM", button, "BOTTOM", 0, 11)
         button.Label:SetFontObject("GameFontNormal")
+        button.Accent:Show()
+        button.Accent:SetHeight(3)
     end
 
     ApplyVoidMarkFrame(panicFrame, VM_BG)
