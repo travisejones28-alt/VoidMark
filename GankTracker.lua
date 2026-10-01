@@ -2079,8 +2079,9 @@ function GT:NoteEnemySeen(playerName, timestamp, source)
     end
 
     -- Only count enemies detected by this client.
-    -- Ignore detections received from another Spy user.
-    if source and source ~= Spy.CharacterName then
+    -- Ignore detections received from another Spy user. Some local detection
+    -- paths omit a source entirely, so nil remains a valid local observation.
+    if source and Spy and Spy.CharacterName and source ~= Spy.CharacterName then
         return
     end
 
@@ -2122,8 +2123,8 @@ function GT:GetPanicThreats(seconds)
 
         if seenAt and seenAt >= cutoff then
             -- Classic reports a player 10+ levels above you as a skull/??.
-            -- Some detection paths do not expose a numeric level at all, so a
-            -- missing/non-positive level is conservatively treated the same way.
+            -- Some detection paths expose no level at all. Keep those as an
+            -- explicit unknown (?) rather than falsely labeling them skull/??.
             local skull = level ~= nil and level < 0
             local unknown = level == nil or level == 0
             if skull or unknown or level >= minimumRelevantLevel then
