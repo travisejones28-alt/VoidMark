@@ -3782,7 +3782,7 @@ local function ConfirmHunterPet(guid, flags)
 end
 
 local FEIGN_DEATH_SPELL_ID = 5384
-local FEIGN_SUPPRESS_SECONDS = 3.0
+local FEIGN_SUPPRESS_SECONDS = 8.0
 local recentFeign = {}
 local recentFeignByName = {}
 
@@ -3794,18 +3794,54 @@ end
 
 local function MarkHunterFeign(guid, name)
     local now = GetTime()
-    if guid then recentFeign[guid] = now end
+    if guid then
+        recentFeign[guid] = now
+        recentOutgoingVictims[guid] = nil
+    end
     local key = NormalizeFeignName(name)
     if key then recentFeignByName[key] = now end
 
-    -- One concise notice per actual feign activation.
+    -- One notice per actual Feign activation. SPELL_CAST_SUCCESS and
+    -- AURA_APPLIED can both report the same Feign, so suppress duplicates.
     GT._lastFeignNotice = GT._lastFeignNotice or {}
     local noticeKey = guid or key or tostring(name or "Hunter")
     local last = tonumber(GT._lastFeignNotice[noticeKey]) or 0
-    if now - last > 1.0 then
-        GT._lastFeignNotice[noticeKey] = now
-        local short = tostring(name or "Hunter"):match("^([^%-]+)") or tostring(name or "Hunter")
-        Print(short .. " Feign")
+    if now - last <= 1.0 then return end
+    GT._lastFeignNotice[noticeKey] = now
+
+    local short = tostring(name or "Hunter"):match("^([^%-]+)") or tostring(name or "Hunter")
+    local message = short .. " FEIGN"
+    -- Normal party only: raid/solo stays private, avoiding unexpected raid spam.
+    if IsInGroup and IsInGroup() and not (IsInRaid and IsInRaid()) and SendChatMessage then
+        SendChatMessage(message, "PARTY")
+    else
+        Print(message)
+    end
+
+    -- Brief on-screen confirmation so the Feign is obvious even when chat is busy.
+    if UIParent and not GT._feignPopup then
+        local f = CreateFrame("Frame", nil, UIParent)
+        f:SetSize(360, 70)
+        f:SetPoint("CENTER", UIParent, "CENTER", 0, 150)
+        f:SetFrameStrata("DIALOG")
+        f.text = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        f.text:SetPoint("CENTER")
+        f:Hide()
+        GT._feignPopup = f
+    end
+    local popup = GT._feignPopup
+    if popup then
+        popup.text:SetText("|cffffd200" .. short .. " FEIGN|r")
+        popup:Show()
+        if C_Timer and C_Timer.After then
+            local token = (popup._token or 0) + 1
+            popup._token = token
+            C_Timer.After(1.0, function()
+                if popup and popup._token == token then popup:Hide() end
+            end)
+        else
+            popup:Hide()
+        end
     end
 end
 
