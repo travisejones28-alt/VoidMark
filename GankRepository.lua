@@ -2312,11 +2312,12 @@ function Repo:GetStatisticsSnapshot()
     local out = {}
     if not history then return out end
 
-    -- Statistics is a lifetime view.  Build identities from every surviving
-    -- source, then use the repository's normal historical resolver for totals.
-    -- Spy PlayerData is included here because it is where pre-repository lifetime
-    -- wins/losses and richer player metadata can still live.
+    -- Statistics must stay a cheap presentation path. Deep historical recovery
+    -- (FindLegacyFloor/LegacyUnresolved/alias repair) can walk thousands of
+    -- records and previously ran once per displayed player, freezing Classic.
+    -- Build direct O(1) lookup maps once, then resolve every row from them.
     local byGUID, byExact, byBase = {}, {}, {}
+    local floorByGUID, floorByExact, floorByBase = {}, {}, {}
 
     local function exactKey(name)
         return ExactPlayerNameKey(tostring(name or ""))
@@ -2359,8 +2360,23 @@ function Repo:GetStatisticsSnapshot()
     local function newer(row, t)
         return (tonumber(t) or 0) >= (tonumber(row.time) or 0)
     end
+    local function bindFloor(entry)
+        if type(entry) ~= "table" then return end
+        local gap = LegacyGapFromEntry(entry)
+        if gap <= 0 then return end
+        local g = tostring(entry.guid or "")
+        if IsPlayerGUID(g) then floorByGUID[g] = math.max(floorByGUID[g] or 0, gap) end
+        local e = exactKey(entry.name)
+        if e ~= "" then floorByExact[e] = math.max(floorByExact[e] or 0, gap) end
+        local b = baseKey(entry.name)
+        if b ~= "" then floorByBase[b] = math.max(floorByBase[b] or 0, gap) end
+    end
+    local function directFloor(row)
+        local g = tostring(row.guid or "")
+        if IsPlayerGUID(g) and floorByGUID[g] then return floorByGUID[g] end
+        return floorByExact[exactKey(row.name)] or floorByBase[baseKey(row.name)] or 0
+    end
 
-    -- Rich Spy records first: preserve guild/rank/KOS/reason/losses and metadata.
     local playerData = SpyPerCharDB and SpyPerCharDB.PlayerData
     if type(playerData) == "table" then
         for key, data in pairs(playerData) do
@@ -2387,10 +2403,10 @@ function Repo:GetStatisticsSnapshot()
         end
     end
 
-    -- Timestamped repository events provide authoritative last-kill metadata.
     for _, event in pairs(history.events or {}) do
         if type(event) == "table" and not IsExplicitNonPlayerGUID(event.guid) then
             local row = touch(event.name, event.guid)
+            row.repoEvents = (tonumber(row.repoEvents) or 0) + 1
             local t = tonumber(event.t or event.time or event.timestamp) or 0
             if newer(row, t) then
                 row.time = t
@@ -2405,11 +2421,12 @@ function Repo:GetStatisticsSnapshot()
         end
     end
 
-    -- Victim index catches legitimate history whose individual event rows were
-    -- recovered/compacted in older builds.
+    -- Victim counts are already deduped/repaired by the repository. Prefer them
+    -- over the raw per-row count when larger.
     for _, victim in pairs(history.victims or {}) do
         if type(victim) == "table" and not IsExplicitNonPlayerGUID(victim.guid) then
             local row = touch(victim.name, victim.guid)
+            row.repoEvents = math.max(tonumber(row.repoEvents) or 0, tonumber(victim.kills) or 0)
             local t = tonumber(victim.lastKill) or 0
             if newer(row, t) then
                 row.time = t
@@ -2421,17 +2438,13 @@ function Repo:GetStatisticsSnapshot()
         end
     end
 
-    -- Floors represent real pre-event kills. They may have no metadata, but they
-    -- must still create a Statistics identity instead of disappearing.
     for _, entry in pairs(history.legacyFloors or {}) do
         if type(entry) == "table" and LegacyGapFromEntry(entry) > 0 then
+            bindFloor(entry)
             touch(entry.name, entry.guid)
         end
     end
 
-    -- Pre-rename PlayerData may contain players that have no timestamped
-    -- repository row at all. Make those identities visible too; touch() folds a
-    -- unique base-name alias onto the existing row instead of duplicating it.
     local legacyPlayers = SpyDB and SpyDB.VoidMarkLegacyPlayers
     if type(legacyPlayers) == "table" then
         for legacyName, legacyData in pairs(legacyPlayers) do
@@ -2442,12 +2455,12 @@ function Repo:GetStatisticsSnapshot()
         end
     end
 
-    -- Resolve lifetime wins with the same deep resolver used by the rest of
-    -- VoidMark. Keep Spy losses because the kill repository does not reconstruct
-    -- deaths that were never recorded.
     for _, row in ipairs(out) do
-        local total = HistoricalCountWithFloor(history, row.name, row.guid, true, true)
-        row.wins = math.max(tonumber(total) or 0, tonumber(row.spyWins) or 0, tonumber(row.legacyWins) or 0)
+        local repoEvents = tonumber(row.repoEvents) or 0
+        local floor = directFloor(row)
+        local legacyWins = tonumber(row.legacyWins) or 0
+        if legacyWins <= 0 then legacyWins = select(1, LegacySpyLifetimeWins(row.name)) end
+        row.wins = math.max(repoEvents + floor, repoEvents, tonumber(row.spyWins) or 0, legacyWins)
         row.loses = tonumber(row.loses) or 0
         row.time = tonumber(row.time) or 0
     end
