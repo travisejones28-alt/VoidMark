@@ -1328,7 +1328,7 @@ local function RecordDishonorableKill(message)
     -- The Blizzard stat can update a fraction of a second after the message.
     -- Reconcile shortly afterward so even a missed/filtered chat event is repaired.
     if C_Timer and C_Timer.After then
-        C_Timer.After(1.0, function()
+        C_Timer.After(5.0, function()
             local fixed = ReconcileCurrentCharacterDHKs(true)
             if fixed > 0 then UpdateDisplay() end
         end)
