@@ -2560,6 +2560,11 @@ local function FindTodayVictim(playerName, playerGUID)
     return playerName, nil
 end
 
+local function GetCurrentTodayCount(playerName, playerGUID)
+    local _, victim = FindTodayVictim(playerName, playerGUID)
+    return victim and (tonumber(victim.kills) or 0) or 0
+end
+
 local function ApplyLocalKillToDailyStats(playerName, playerGUID, playerLevel, zone, subZone, location, historicalKills)
     -- Normally initialized/rebuilt at login and on remote sync. Only do a full
     -- rebuild here if the realm 08:00 daily boundary actually rolled over.
@@ -2897,6 +2902,7 @@ function GT:RecordKill(playerName, playerGUID)
     perfLastMS = PerfMark(perf, "player details", perfLastMS)
     local historicalKills = 0
     local repositoryAdded = nil
+    local todayCountBeforeRepository = GetCurrentTodayCount(playerName, playerGUID)
 
     if TaliaaGankRepository and TaliaaGankRepository.RecordKill then
         historicalKills, repositoryAdded = TaliaaGankRepository:RecordKill(playerName, playerGUID, {
@@ -2962,12 +2968,21 @@ function GT:RecordKill(playerName, playerGUID)
         GT.lastKillHistorical = historicalKills
         GT._historyRefreshPending = true
     else
-        -- PERFORMANCE: update today's in-memory counters directly. The old path
-        -- walked the entire 2k+ event repository multiple times at the instant of a
-        -- kill, which is exactly when combat responsiveness matters most.
-        todayVictimKills = ApplyLocalKillToDailyStats(
-            playerName, playerGUID, playerLevel, zone, subZone, location, historicalKills
-        )
+        local todayCountAfterRepository = GetCurrentTodayCount(playerName, playerGUID)
+        local expectedTodayCount = (tonumber(todayCountBeforeRepository) or 0) + 1
+
+        if todayCountAfterRepository >= expectedTodayCount then
+            todayVictimKills = todayCountAfterRepository
+            GT.lastKillName = playerName
+            GT.lastKillGUID = playerGUID
+            GT.lastKillLevel = playerLevel
+            GT.lastKillLocation = location
+            GT.lastKillHistorical = historicalKills
+        else
+            todayVictimKills = ApplyLocalKillToDailyStats(
+                playerName, playerGUID, playerLevel, zone, subZone, location, historicalKills
+            )
+        end
     end
     perfLastMS = PerfMark(perf, "today/history counters", perfLastMS)
 
