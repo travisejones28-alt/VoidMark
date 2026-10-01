@@ -167,8 +167,12 @@ end
 function A:FindUnitByGUID(guid)
     if not guid then return nil end
     local unit=self.units and self.units[guid]
+    -- Never recycle a mouseover token into range/location enrichment. Blizzard
+    -- can mark mouseover as protected even after the original observation
+    -- callback returns, which would reopen the protected API chain.
+    if unit=="mouseover" then unit=nil end
     if unit and self:Safe(UnitExists,unit) and self:Safe(UnitGUID,unit)==guid then return unit end
-    for _,u in ipairs({"target","mouseover","focus"}) do
+    for _,u in ipairs({"target","focus"}) do
         if self:Safe(UnitExists,u) and self:Safe(UnitGUID,u)==guid then
             self.units[guid]=u
             return u
@@ -225,7 +229,9 @@ end
 -- hostile-player world coordinates.  A positive range result is useful even
 -- when UnitPosition(enemy) is unavailable.
 function A:CurrentEnemyEnvelope(unit)
-    if not unit or not self:Safe(UnitExists,unit) or not self:Safe(UnitIsPlayer,unit) then return nil end
+    -- Mouseover identity may be observed, but never use it for hostile
+    -- UnitPosition / interact / spell-range queries.
+    if not unit or unit=="mouseover" or not self:Safe(UnitExists,unit) or not self:Safe(UnitIsPlayer,unit) then return nil end
     local exact=self:WorldPosition(unit)
     if exact then return exact,0,"exact hostile UnitPosition" end
     local anchor=self:WorldPosition("player")
