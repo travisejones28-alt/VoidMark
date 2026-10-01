@@ -1723,7 +1723,7 @@ UpdateDisplay = function()
     if not GT.Frame then return end
 
     local duplicates = math.max(0, (GT.totalKills or 0) - (GT.uniqueKills or 0))
-    local recent60 = GT:GetRecentEnemyCount(PANIC_WINDOW_SECONDS)
+    local recentThreats = GT:GetRecentEnemyCount(PANIC_WINDOW_SECONDS)
     local huntView = GetHuntViewMode()
     local weeklyViewStats = nil
     local recordViewStats = nil
@@ -1783,8 +1783,8 @@ UpdateDisplay = function()
             if GT.Frame.DupeValue.Caption then GT.Frame.DupeValue.Caption:SetText("REPEATS") end
         end
         if GT.Frame.NearbyValue then
-            GT.Frame.NearbyValue:SetText(tostring(recent60))
-            if GT.Frame.NearbyValue.Caption then GT.Frame.NearbyValue.Caption:SetText("60/30") end
+            GT.Frame.NearbyValue:SetText(tostring(recentThreats))
+            if GT.Frame.NearbyValue.Caption then GT.Frame.NearbyValue.Caption:SetText("THR/30") end
         end
     end
 
@@ -2006,7 +2006,7 @@ UpdateDisplay = function()
     GT:RefreshVoidMarkCompact()
 
     if UpdatePanicDisplay then
-        UpdatePanicDisplay(recent60)
+        UpdatePanicDisplay(recentThreats)
     end
 end
 
