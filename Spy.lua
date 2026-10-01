@@ -2648,14 +2648,9 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 				Spy.GankRecentDamage[dstName] = nil
 
 				-- Personal threat WIN only when YOUR character got the KB.
+				-- Lifetime wins are owned by GankRepository/RecordKill; do not
+				-- increment PlayerData.wins here or the same death is counted twice.
 				if sourceIsPlayer then
-					if playerData then
-						if not playerData.wins then
-							playerData.wins = 0
-						end
-						playerData.wins = playerData.wins + 1
-					end
-
 					if Spy.ThreatCombat[dstName] then
 						Spy:FinishThreatFight(dstName, "WIN")
 					end
@@ -2682,8 +2677,9 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 				if Spy.PetGUID[srcGUID] then
 					local playerData = SpyPerCharDB.PlayerData[dstName]
 					if playerData then
-						if not playerData.wins then playerData.wins = 0 end
-							playerData.wins = playerData.wins + 1
+						-- RecordKill/GankRepository owns lifetime win accounting.
+						-- Pet/guardian killing blows may still finish the personal
+						-- threat fight, but must not increment PlayerData.wins.
 						if Spy.ThreatCombat[dstName] then
 							Spy:FinishThreatFight(dstName, "WIN")
 						end
