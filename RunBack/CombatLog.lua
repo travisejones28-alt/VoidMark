@@ -49,11 +49,17 @@ function A:Observe(unit)
     self.seen[guid]={name=name,level=level,class=class,race=race,faction=faction,observed=self:Now()}
     self.units[guid]=unit
 
-    -- Range/location enrichment is optional.  The combat log can still create a
-    -- valid death record if a protected unit token prevents this observation.
-    self:Safe(function()
-        self:RememberEnemyEnvelope(guid,unit,"unit observation")
-    end)
+    -- The protected-action report we captured came specifically through the
+    -- UPDATE_MOUSEOVER_UNIT path while range/location enrichment was running.
+    -- Identity is useful, but a mouseover envelope is optional: direct damage,
+    -- target and nameplate observations can supply a conservative envelope.
+    -- Skip range APIs entirely for mouseover so this event cannot enter the
+    -- restricted CheckInteractDistance/IsSpellInRange/UnitPosition chain.
+    if unit ~= "mouseover" then
+        self:Safe(function()
+            self:RememberEnemyEnvelope(guid,unit,"unit observation")
+        end)
+    end
 
     self:ScheduleCleanup()
     -- Identity/range observations never alter an already-created death timer.
