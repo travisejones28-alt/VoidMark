@@ -596,9 +596,10 @@ function Get-LegacySpyPlayers {
             $raw = $Text.Substring($eo, $ec - $eo + 1)
             $name = $em.Groups[1].Value
             $wins = [int64](Get-LuaNumberField -TableText $raw -Field 'wins')
-            if ($name -and $wins -gt 0) {
+            $loses = [int64](Get-LuaNumberField -TableText $raw -Field 'loses')
+            if ($name -and ($wins -gt 0 -or $loses -gt 0)) {
                 $p = [pscustomobject]@{
-                    Name=$name; Wins=$wins
+                    Name=$name; Wins=$wins; Loses=$loses
                     Time=[int64](Get-LuaNumberField -TableText $raw -Field 'time')
                     Level=[int](Get-LuaNumberField -TableText $raw -Field 'level')
                     Rank=[int](Get-LuaNumberField -TableText $raw -Field 'rank')
@@ -614,6 +615,7 @@ function Get-LegacySpyPlayers {
                 } else {
                     $old = $out[$k]
                     if ($p.Wins -gt $old.Wins) { $old.Wins = $p.Wins }
+                    if ($p.Loses -gt $old.Loses) { $old.Loses = $p.Loses }
                     if ($p.Time -gt $old.Time) {
                         $old.Time=$p.Time
                         foreach ($field in @('Level','Rank','Class','Guild','Zone','SubZone','Faction')) {
@@ -637,6 +639,7 @@ function Set-LegacySpyPlayers {
     foreach ($p in @($Players)) {
         $fields = New-Object System.Collections.Generic.List[string]
         $fields.Add('["wins"] = ' + [int64]$p.Wins)
+        $fields.Add('["loses"] = ' + [int64]$p.Loses)
         if ([int64]$p.Time -gt 0) { $fields.Add('["time"] = ' + [int64]$p.Time) }
         if ([int]$p.Level -gt 0) { $fields.Add('["level"] = ' + [int]$p.Level) }
         if ([int]$p.Rank -gt 0) { $fields.Add('["rank"] = ' + [int]$p.Rank) }
