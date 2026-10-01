@@ -84,12 +84,24 @@ local UTF8_ASCII = {
     ["þ"]="th", ["ß"]="ss", ["œ"]="oe", ["š"]="s", ["ž"]="z",
 }
 
+-- Cache name normalization. Statistics can touch the same names many times
+-- while building thousands of historical rows; repeatedly running 20+ UTF-8
+-- gsubs per call is expensive enough to trip Classic's script watchdog.
+local utf8CaseFoldCache = {}
+local exactPlayerNameKeyCache = {}
+local canonicalPlayerNameKeyCache = {}
+
 local function UTF8CaseFold(value)
-    local s = tostring(value or "")
+    local raw = tostring(value or "")
+    local cached = utf8CaseFoldCache[raw]
+    if cached ~= nil then return cached end
+    local s = raw
     for upper, lower in pairs(UTF8_LOWER) do
-        s = s:gsub(upper, lower)
+        if s:find(upper, 1, true) then s = s:gsub(upper, lower) end
     end
-    return string.lower(s)
+    s = string.lower(s)
+    utf8CaseFoldCache[raw] = s
+    return s
 end
 
 local function BasePlayerNameText(name)
@@ -98,14 +110,23 @@ local function BasePlayerNameText(name)
 end
 
 local function ExactPlayerNameKey(name)
-    return UTF8CaseFold(tostring(name or ""))
+    local raw = tostring(name or "")
+    local cached = exactPlayerNameKeyCache[raw]
+    if cached ~= nil then return cached end
+    cached = UTF8CaseFold(raw)
+    exactPlayerNameKeyCache[raw] = cached
+    return cached
 end
 
 local function CanonicalPlayerNameKey(name)
-    local s = UTF8CaseFold(BasePlayerNameText(name))
+    local raw = tostring(name or "")
+    local cached = canonicalPlayerNameKeyCache[raw]
+    if cached ~= nil then return cached end
+    local s = UTF8CaseFold(BasePlayerNameText(raw))
     for accented, ascii in pairs(UTF8_ASCII) do
-        s = s:gsub(accented, ascii)
+        if s:find(accented, 1, true) then s = s:gsub(accented, ascii) end
     end
+    canonicalPlayerNameKeyCache[raw] = s
     return s
 end
 
