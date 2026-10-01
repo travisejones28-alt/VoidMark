@@ -3825,29 +3825,27 @@ function GT:IsUnitCurrentlyFeigningName(name)
     return IsUnitCurrentlyFeigningName(name)
 end
 
-local function FeignDebugValue(v)
-    if v == nil then return "nil" end
-    return tostring(v)
+function GT:ShouldSuppressHunterUnitDied(name, guid)
+    if not IsKnownHunter(name, guid) then return false end
+    local confirmedAt = guid and tonumber(recentConfirmedPlayerKills[guid]) or 0
+    return not confirmedAt or confirmedAt == 0 or (GetTime() - confirmedAt) > 2.0
 end
 
-local function FeignDiag(subEvent, guid, name, p1, p2, p3, p4, p5)
-    if not name or not guid or not IsPlayerGUID(guid) then return end
-    local base = tostring(name):match("^([^%-]+)") or tostring(name)
-    local playerData = SpyPerCharDB and SpyPerCharDB.PlayerData and SpyPerCharDB.PlayerData[name]
-    local class = playerData and playerData.Class
-    if not class and GetPlayerInfoByGUID then
+local function IsKnownHunter(name, guid)
+    local data = FindPlayerDataForName and FindPlayerDataForName(name) or nil
+    local class = data and (data.class or data.Class) or nil
+    if not class and SpyPerCharDB and SpyPerCharDB.PlayerData then
+        local raw = SpyPerCharDB.PlayerData[name]
+        class = raw and (raw.class or raw.Class) or nil
+    end
+    if not class and guid and GetPlayerInfoByGUID then
         local _, classFile = GetPlayerInfoByGUID(guid)
         class = classFile
     end
-    if tostring(class or ""):upper() ~= "HUNTER" then return end
-    if subEvent ~= "PARTY_KILL" and subEvent ~= "UNIT_DIED" and subEvent ~= "SPELL_INSTAKILL"
-        and subEvent ~= "SPELL_CAST_SUCCESS" and subEvent ~= "SPELL_AURA_APPLIED" then return end
-    Print(string.format("FEIGNDBG %s %s p1=%s p2=%s p3=%s p4=%s p5=%s live=%s",
-        tostring(subEvent), base,
-        FeignDebugValue(p1), FeignDebugValue(p2), FeignDebugValue(p3),
-        FeignDebugValue(p4), FeignDebugValue(p5),
-        tostring(IsUnitCurrentlyFeigningName(base))))
+    return tostring(class or ""):upper() == "HUNTER"
 end
+
+local recentConfirmedPlayerKills = {}
 
 local function MarkHunterFeign(guid, name)
     local now = GetTime()
@@ -4018,8 +4016,6 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
         local _, subEvent, _, sourceGUID, sourceName, sourceFlags, _, destGUID, destName, destFlags, _, payload1, payload2, payload3, payload4, payload5 =
             CombatLogGetCurrentEventInfo()
 
-        FeignDiag(subEvent, destGUID or sourceGUID, destName or sourceName, payload1, payload2, payload3, payload4, payload5)
-
         -- Feign Death may have no destination on SPELL_CAST_SUCCESS, so use the
         -- source hunter there and the destination on AURA_APPLIED. This must run
         -- before the normal CLEU fast-return below.
@@ -4118,6 +4114,20 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
 
         if subEvent == "UNIT_DIED"
             and destGUID and destName and IsPlayerGUID(destGUID)
+            and IsKnownHunter(destName, destGUID) then
+            local confirmedAt = tonumber(recentConfirmedPlayerKills[destGUID]) or 0
+            if (GetTime() - confirmedAt) > 2.0 then
+                -- Empirically on Classic Era 1.15.9, hostile Hunter Feign emitted
+                -- UNIT_DIED with recap=-1/unconscious=false and no PARTY_KILL.
+                MarkHunterFeign(destGUID, destName)
+                recentOutgoingVictims[destGUID] = nil
+                return
+            end
+            recentConfirmedPlayerKills[destGUID] = nil
+        end
+
+        if subEvent == "UNIT_DIED"
+            and destGUID and destName and IsPlayerGUID(destGUID)
             and (payload2 == 1 or payload2 == true or payload2 == "1") then
             MarkHunterFeign(destGUID, destName)
             recentOutgoingVictims[destGUID] = nil
@@ -4148,6 +4158,12 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
             and destGUID and destName
             and IsPlayerGUID(destGUID)
             and IsHostilePlayerFlags(destFlags, destGUID) then
+
+            -- On this Classic Era client, a real Hunter death produces PARTY_KILL
+            -- immediately before UNIT_DIED, while Feign produces UNIT_DIED alone.
+            -- Remember the authoritative real-kill signal so the following
+            -- UNIT_DIED is not mistaken for Feign.
+            recentConfirmedPlayerKills[destGUID] = GetTime()
 
             if GT:IsRecentFeign(destName, destGUID) or IsUnitCurrentlyFeigningName(destName) then
                 MarkHunterFeign(destGUID, destName)
