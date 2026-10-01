@@ -2032,6 +2032,11 @@ local function CurrentLocation()
 end
 
 UpdatePanicDisplay = function(forcedCount)
+    if GT.RefreshPanicArt then
+        GT:RefreshPanicArt(false, forcedCount)
+        return
+    end
+
     local pf = GT.PanicFrame
     local button = pf and pf.Button
     local label = button and button.Label
@@ -3989,6 +3994,11 @@ panicFrame.Button:SetScript("OnClick", function()
 end)
 
 RefreshPanicStyle = function()
+    if GT.RefreshPanicArt then
+        GT:RefreshPanicArt(true)
+        return
+    end
+
     local style = (SpyDB and SpyDB.VoidMarkPanicStyle) or "skull"
     if not PANIC_STYLE_NAMES[style] then style = "skull" end
 
