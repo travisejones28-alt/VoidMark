@@ -2469,9 +2469,10 @@ function Repo:GetStatisticsSnapshot()
     local legacyPlayers = SpyDB and SpyDB.VoidMarkLegacyPlayers
     if type(legacyPlayers) == "table" then
         for legacyName, legacyData in pairs(legacyPlayers) do
-            if type(legacyData) == "table" and (tonumber(legacyData.wins) or 0) > 0 then
+            if type(legacyData) == "table" and ((tonumber(legacyData.wins) or 0) > 0 or (tonumber(legacyData.loses) or 0) > 0) then
                 local row = touch(legacyName, "")
                 row.legacyWins = math.max(tonumber(row.legacyWins) or 0, tonumber(legacyData.wins) or 0)
+                row.legacyLoses = math.max(tonumber(row.legacyLoses) or 0, tonumber(legacyData.loses) or 0)
                 local t = tonumber(legacyData.time) or 0
                 row.guild = (legacyData.guild and legacyData.guild ~= "") and legacyData.guild or row.guild
                 row.rank = (tonumber(legacyData.rank) or 0) > 0 and legacyData.rank or row.rank
@@ -2497,7 +2498,7 @@ function Repo:GetStatisticsSnapshot()
         -- confirmed repository events, while keeping every other known counter
         -- as a non-destructive minimum.
         row.wins = math.max(repoEvents + floor, repoEvents, tonumber(row.spyWins) or 0, legacyWins)
-        row.loses = tonumber(row.loses) or 0
+        row.loses = math.max(tonumber(row.loses) or 0, tonumber(row.legacyLoses) or 0)
         row.time = tonumber(row.time) or 0
     end
 
