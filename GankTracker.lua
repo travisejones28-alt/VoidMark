@@ -358,10 +358,11 @@ local function SyncVoidMarkLifetimeRecord(playerName, playerGUID, historicalKill
 
     local data = FindPlayerDataForName(playerName)
     if data then
-        -- VoidMark's compact W/L column reads PlayerData.wins in its hot path.
-        -- Keep that cheap cache at least as high as the canonical repository
-        -- lifetime count so a kill never leaves the visible row stuck at 0-0.
-        data.wins = math.max(tonumber(data.wins) or 0, total)
+        -- PlayerData.wins is now only a presentation cache. The repository
+        -- already folds in preserved legacy wins/floors, so mirroring the
+        -- canonical total prevents the old Spy kill counter from double-counting
+        -- the same real death.
+        data.wins = total
         if playerGUID and tostring(playerGUID) ~= "" and not data.guid then
             data.guid = playerGUID
         end
