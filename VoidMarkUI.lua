@@ -319,6 +319,11 @@ local function BuildGearMenu(self, level)
             VoidMarkKillEffects:ToggleOptions()
         end
     end)
+    Add("Damage Records", function()
+        if VoidMarkDamageRecords and VoidMarkDamageRecords.Toggle then
+            VoidMarkDamageRecords:Toggle()
+        end
+    end)
     Add("Taunt", function()
         if VoidMarkTaunt and VoidMarkTaunt.Toggle then VoidMarkTaunt.Toggle() end
     end)
