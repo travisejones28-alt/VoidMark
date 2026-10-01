@@ -493,9 +493,9 @@ function Spy:AlertPlayer(player, source)
 		end
 		if Spy.db.profile.EnableSound then
 			if source ~= nil and source ~= Spy.CharacterName then
-				PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-kosaway.mp3", Spy.db.profile.SoundChannel)
+				PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-kosaway.mp3", Spy.db.profile.SoundChannel)
 			else
-				PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-kos.mp3", Spy.db.profile.SoundChannel)
+				PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-kos.mp3", Spy.db.profile.SoundChannel)
 			end
 		end
 		if Spy.db.profile.ShareKOSBetweenCharacters then Spy:RegenerateKOSCentralList(player) end
@@ -515,18 +515,18 @@ function Spy:AlertPlayer(player, source)
 			end
 			if Spy.db.profile.EnableSound then
 				if source ~= nil and source ~= Spy.CharacterName then
-					PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-kosaway.mp3", Spy.db.profile.SoundChannel)
+					PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-kosaway.mp3", Spy.db.profile.SoundChannel)
 				else
-					PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-kosguild.mp3", Spy.db.profile.SoundChannel)
+					PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-kosguild.mp3", Spy.db.profile.SoundChannel)
 				end
 			end
 		else
 			if Spy.db.profile.EnableSound and not Spy.db.profile.OnlySoundKoS then 
 				if source == nil or source == Spy.CharacterName then
 					if playerData and Spy.db.profile.WarnOnRace and playerData.race == Spy.db.profile.SelectWarnRace then --++
-						PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-race.mp3", Spy.db.profile.SoundChannel) 
+						PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-race.mp3", Spy.db.profile.SoundChannel) 
 					else
-						PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-nearby.mp3", Spy.db.profile.SoundChannel)
+						PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-nearby.mp3", Spy.db.profile.SoundChannel)
 					end
 				end
 			end
@@ -534,14 +534,14 @@ function Spy:AlertPlayer(player, source)
 	elseif Spy.db.profile.EnableSound and not Spy.db.profile.OnlySoundKoS then 
 		if source == nil or source == Spy.CharacterName then
 			if playerData and Spy.db.profile.WarnOnRace and playerData.race == Spy.db.profile.SelectWarnRace then
-				PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-race.mp3", Spy.db.profile.SoundChannel) 
+				PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-race.mp3", Spy.db.profile.SoundChannel) 
 			else
-				PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-nearby.mp3", Spy.db.profile.SoundChannel)
+				PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-nearby.mp3", Spy.db.profile.SoundChannel)
 			end
 		end
 	elseif Spy.db.profile.EnableSound and not Spy.db.profile.OnlySoundKoS then
 		if source == nil or source == Spy.CharacterName then
-			PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-nearby.mp3", Spy.db.profile.SoundChannel)
+			PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-nearby.mp3", Spy.db.profile.SoundChannel)
 		end
 	end
 end
@@ -592,7 +592,7 @@ function Spy:AlertStealthPlayer(player)
 			Spy:ShowAlert("stealth", player)
 		end
 		if Spy.db.profile.EnableSound then
-			PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-stealth.mp3", Spy.db.profile.SoundChannel)
+			PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-stealth.mp3", Spy.db.profile.SoundChannel)
 		end
 	end
 end
@@ -608,7 +608,7 @@ function Spy:AlertProwlPlayer(player)
 			Spy:ShowAlert("prowl", player)
 		end
 		if Spy.db.profile.EnableSound then
-			PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\detected-stealth.mp3", Spy.db.profile.SoundChannel)
+			PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\detected-stealth.mp3", Spy.db.profile.SoundChannel)
 		end
 	end
 end
@@ -696,13 +696,13 @@ function Spy:ToggleIgnorePlayer(ignore, player)
 		Spy:AddIgnoreData(player)
 		Spy:RemoveKOSData(player)
 		if Spy.db.profile.EnableSound then
-			PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\list-add.mp3", Spy.db.profile.SoundChannel)
+			PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\list-add.mp3", Spy.db.profile.SoundChannel)
 		end
 		DEFAULT_CHAT_FRAME:AddMessage(L["SpySignatureColored"]..L["PlayerAddedToIgnoreColored"]..player)
 	else
 		Spy:RemoveIgnoreData(player)
 		if Spy.db.profile.EnableSound then
-			PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\list-remove.mp3", Spy.db.profile.SoundChannel)
+			PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\list-remove.mp3", Spy.db.profile.SoundChannel)
 		end
 		DEFAULT_CHAT_FRAME:AddMessage(L["SpySignatureColored"]..L["PlayerRemovedFromIgnoreColored"]..player)
 	end
@@ -723,13 +723,13 @@ function Spy:ToggleKOSPlayer(kos, player)
 			SpyPerCharDB.PlayerData[player].kos = 1
 		end	
 		if Spy.db.profile.EnableSound then
-			PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\list-add.mp3", Spy.db.profile.SoundChannel)
+			PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\list-add.mp3", Spy.db.profile.SoundChannel)
 		end
 		DEFAULT_CHAT_FRAME:AddMessage(L["SpySignatureColored"]..L["PlayerAddedToKOSColored"]..player)
 	else
 		Spy:RemoveKOSData(player)
 		if Spy.db.profile.EnableSound then
-			PlaySoundFile("Interface\\AddOns\\TaliaaSpy\\Sounds\\list-remove.mp3", Spy.db.profile.SoundChannel)
+			PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\list-remove.mp3", Spy.db.profile.SoundChannel)
 		end
 		DEFAULT_CHAT_FRAME:AddMessage(L["SpySignatureColored"]..L["PlayerRemovedFromKOSColored"]..player)
 	end
