@@ -112,27 +112,28 @@ function MM:Create()
     b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     b:RegisterForDrag("LeftButton")
 
-    b:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        edgeSize = 9,
-        insets = {left = 3, right = 3, top = 3, bottom = 3},
-    })
-    b:SetBackdropColor(0.025, 0.010, 0.040, 0.96)
-    b:SetBackdropBorderColor(0.58, 0.20, 0.86, 1)
+    -- True circular minimap button: no square backdrop or tooltip border.
+    b:SetBackdrop(nil)
+
+    b.ring = b:CreateTexture(nil, "BACKGROUND")
+    b.ring:SetPoint("CENTER")
+    b.ring:SetSize(38, 38)
+    b.ring:SetTexture("Interface\\Buttons\\UI-Quickslot2")
+    b.ring:SetVertexColor(0.58, 0.20, 0.86, 1)
 
     b.icon = b:CreateTexture(nil, "ARTWORK")
-    b.icon:SetPoint("TOPLEFT", b, "TOPLEFT", 5, -5)
-    b.icon:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -5, 5)
-    -- Use VoidMark's custom circle panic artwork instead of the old Blizzard raid skull.
+    b.icon:SetPoint("CENTER")
+    b.icon:SetSize(28, 28)
     b.icon:SetTexture("Interface\\AddOns\\VoidMark\\Media\\Panic\\panic_circle.tga")
     b.icon:SetTexCoord(0, 1, 0, 1)
     b.icon:SetVertexColor(1, 1, 1, 1)
 
     b.highlight = b:CreateTexture(nil, "HIGHLIGHT")
-    b.highlight:SetAllPoints(b)
-    b.highlight:SetTexture("Interface\\Buttons\\ButtonHilight-Square")
+    b.highlight:SetPoint("CENTER")
+    b.highlight:SetSize(38, 38)
+    b.highlight:SetTexture("Interface\\Buttons\\UI-Quickslot2")
     b.highlight:SetBlendMode("ADD")
+    b.highlight:SetAlpha(0.35)
 
     b:SetScript("OnClick", function(self, mouseButton)
         if mouseButton == "RightButton" then MM:OpenSettings(self) else MM:ToggleMain() end
@@ -153,7 +154,7 @@ function MM:Create()
     b:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
 
     b:SetScript("OnEnter", function(self)
-        self:SetBackdropBorderColor(0.78, 0.38, 1.0, 1)
+        if self.ring then self.ring:SetVertexColor(0.78, 0.38, 1.0, 1) end
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         GameTooltip:AddLine("VoidMark", 0.78, 0.45, 1.0)
         GameTooltip:AddLine("Left-click: Show / hide VoidMark", 0.88, 0.88, 0.92)
@@ -162,7 +163,7 @@ function MM:Create()
         GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function(self)
-        self:SetBackdropBorderColor(0.58, 0.20, 0.86, 1)
+        if self.ring then self.ring:SetVertexColor(0.58, 0.20, 0.86, 1) end
         GameTooltip:Hide()
     end)
 
