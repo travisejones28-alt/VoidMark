@@ -1,7 +1,7 @@
 -- VoidMark Stage 2 UI layer
 -- UI Adjust 1: tighter compact header; backend/data behavior unchanged.
--- Keeps the existing Spy/TaliaaSpy backend, SavedVariables, secure target rows,
--- detection logic, threat logic and synchronization intact while replacing the
+-- Keeps the existing Spy/VoidMark backend, SavedVariables, secure target rows,
+-- detection logic and synchronization intact while replacing the
 -- visible main-window presentation with a compact Shadow Priest themed shell.
 
 local VM = {}
@@ -13,9 +13,7 @@ VM.PURPLE_BRIGHT = {0.76, 0.42, 1.00}
 VM.BG = {0.015, 0.010, 0.025, 0.97}
 VM.ROW_UNKNOWN = {0.075, 0.075, 0.095}
 VM.ROW_LOW = {0.025, 0.17, 0.09}
-VM.ROW_HIGH = {0.30, 0.20, 0.025}
 VM.ROW_KOS = {0.38, 0.035, 0.05}
-VM.ROW_HUNT = {0.26, 0.055, 0.38}
 VM.ROW_STEALTH = {0.20, 0.045, 0.31}
 
 -- Compact header geometry. The logo gets a little more vertical breathing room,
@@ -42,22 +40,11 @@ local function SafePlayerData(name)
     return SpyPerCharDB and SpyPerCharDB.PlayerData and SpyPerCharDB.PlayerData[name] or nil
 end
 
-local function EnsureHuntData()
-    if not SpyPerCharDB then return nil end
-    SpyPerCharDB.HuntData = SpyPerCharDB.HuntData or {}
-    return SpyPerCharDB.HuntData
-end
-
 local function IsKOS(name)
     if not name or not SpyPerCharDB then return false end
     if SpyPerCharDB.KOSData and SpyPerCharDB.KOSData[name] then return true end
     local data = SafePlayerData(name)
     return data and data.kos == 1 or false
-end
-
-local function IsHunt(name)
-    local hunt = EnsureHuntData()
-    return hunt and hunt[name] ~= nil or false
 end
 
 local function IsStealth(name)
@@ -68,17 +55,6 @@ local function IsStealth(name)
         return false
     end
     return true
-end
-
-local function ThreatLevel(name)
-    if Spy.CalculateThreatScore then
-        local _, level, confidence = Spy:CalculateThreatScore(name)
-        if level == "HIGH" or level == "LOW" then
-            return level, confidence
-        end
-        return "UNKNOWN", confidence
-    end
-    return "UNKNOWN", "Unknown"
 end
 
 local function ClassColor(class)
@@ -129,11 +105,7 @@ end
 
 function VM:GetPriority(name)
     if IsKOS(name) then return 600 end
-    if IsHunt(name) then return 500 end
-    local threat = ThreatLevel(name)
-    if threat == "HIGH" then return 400 end
     if IsStealth(name) then return 300 end
-    if threat == "UNKNOWN" then return 200 end
     return 100
 end
 
@@ -167,31 +139,6 @@ function VM:ManageNearby()
     Spy.CurrentList = list
 end
 
-function VM:ManageHighRisk()
-    local list = {}
-    for player, data in pairs((SpyPerCharDB and SpyPerCharDB.PlayerData) or {}) do
-        if data and data.isEnemy and data.threatData then
-            local threat = ThreatLevel(player)
-            if threat == "HIGH" then
-                list[#list + 1] = { player = player, time = data.time or 0 }
-            end
-        end
-    end
-    table.sort(list, function(a, b) return (a.time or 0) > (b.time or 0) end)
-    Spy.CurrentList = list
-end
-
-function VM:ManageHunt()
-    local list = {}
-    local hunt = EnsureHuntData() or {}
-    for player, added in pairs(hunt) do
-        local data = SafePlayerData(player)
-        list[#list + 1] = { player = player, time = (data and data.time) or added or 0 }
-    end
-    table.sort(list, function(a, b) return (a.time or 0) > (b.time or 0) end)
-    Spy.CurrentList = list
-end
-
 function VM:ManageAllPlayers()
     local list = {}
     for player, data in pairs((SpyPerCharDB and SpyPerCharDB.PlayerData) or {}) do
@@ -204,28 +151,11 @@ function VM:ManageAllPlayers()
 end
 
 -- Extend the existing dropdown-backed list model without changing the first four
--- indices used by the old Spy backend.
+-- indices used by the old Spy backend. High Risk and Hunt List were retired.
 if Spy.ListTypes and not VM.ListTypesInstalled then
     Spy.ListTypes[1][2] = function() VM:ManageNearby() end
-    table.insert(Spy.ListTypes, {"High Risk", function() VM:ManageHighRisk() end})
-    table.insert(Spy.ListTypes, {"Hunt List", function() VM:ManageHunt() end})
     table.insert(Spy.ListTypes, {"All Players", function() VM:ManageAllPlayers() end})
     VM.ListTypesInstalled = true
-end
-
-function Spy:ToggleVoidMarkHunt(name)
-    if not name or name == "" then return end
-    local hunt = EnsureHuntData()
-    if not hunt then return end
-    if hunt[name] then
-        hunt[name] = nil
-        Chat(name .. " removed from Hunt List.")
-    else
-        hunt[name] = time()
-        Chat(name .. " added to Hunt List.")
-    end
-    if not InCombatLockdown() then Spy:RefreshCurrentList() end
-    VM:UpdateModeLabel()
 end
 
 local function ModeShort(mode)
@@ -234,9 +164,7 @@ local function ModeShort(mode)
         [2] = "Recent",
         [3] = "Ignore",
         [4] = "KOS",
-        [5] = "High",
-        [6] = "Hunt",
-        [7] = "All",
+        [5] = "All",
     }
     return names[mode] or "List"
 end
@@ -248,14 +176,6 @@ function VM:GetModeCount(mode)
     if mode == 3 then return CountTable(SpyPerCharDB and SpyPerCharDB.IgnoreData) end
     if mode == 4 then return CountTable(SpyPerCharDB and SpyPerCharDB.KOSData) end
     if mode == 5 then
-        local n = 0
-        for player, data in pairs((SpyPerCharDB and SpyPerCharDB.PlayerData) or {}) do
-            if data and data.threatData and ThreatLevel(player) == "HIGH" then n = n + 1 end
-        end
-        return n
-    end
-    if mode == 6 then return CountTable(EnsureHuntData()) end
-    if mode == 7 then
         local n = 0
         for _, data in pairs((SpyPerCharDB and SpyPerCharDB.PlayerData) or {}) do
             if data and data.isEnemy then n = n + 1 end
@@ -288,7 +208,7 @@ local function BuildModeMenu(self, level)
         {2, "Recent"},
         {4, "KOS List"},
         {3, "Ignore List"},
-        {7, "All Players"},
+        {5, "All Players"},
     }
     for _, entry in ipairs(entries) do
         local mode, label = entry[1], entry[2]
@@ -737,17 +657,11 @@ function VM:StyleRow(num, name, desc, opacity)
     local class = data and data.class
     local r, g, b = ClassColor(class)
     local isKOS = IsKOS(name)
-    local isHunt = IsHunt(name)
     local isStealth = IsStealth(name)
-    local threat = ThreatLevel(name)
 
     local marker = ""
     if isKOS then
         marker = "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_8:13:13:0:0|t "
-    elseif isHunt then
-        marker = "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_3:13:13:0:0|t "
-    elseif threat == "HIGH" then
-        marker = "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_1:13:13:0:0|t "
     elseif isStealth then
         marker = "|TInterface\\Icons\\Ability_Stealth:13:13:0:0|t "
     end
@@ -762,148 +676,8 @@ function VM:StyleRow(num, name, desc, opacity)
     local status
     if isKOS then
         status = "|cffff4d5dKOS|r"
-    elseif isHunt then
-        status = "|cffc071ffHUNT|r"
-    elseif threat == "HIGH" then
-        status = "|cffffcf4aHIGH|r"
-    elseif threat == "LOW" then
-        status = "|cff43e67bLOW|r"
-    else
-        -- Unknown threat is intentionally blank in the compact list.
-        status = ""
-    end
-
-    -- Integrated corpse run timer. Keep it in its own fixed column immediately
-    -- LEFT of the KOS/HUNT/threat column so the threat label never shifts when
-    -- a timer appears/disappears.
-    local runBack = Spy.GetRunBackDisplay and Spy:GetRunBackDisplay(name) or nil
-    local runBackTime = ""
-    local runBackColor = "|cffffd84d" -- yellow countdown
-    if runBack then
-        if runBack.ready then
-            runBackColor = "|cffff5b65" -- red once return is possible
-        end
-        runBackTime = runBack.time or ""
-    end
-
-    -- Fixed compact columns: Name | Threat | Level | Class icon | Record.
-    -- Threat keeps a reserved column even when UNKNOWN so level/class/record
-    -- alignment never shifts between rows.
-    local levelText = (data and data.level) and tostring(data.level) or ""
-    local classIcon = ClassIconTag(class, 16)
-    if classIcon == "" and class then
-        -- Very old clients should still show something useful if Blizzard's
-        -- icon coordinate table is unavailable.
-        classIcon = tostring(class)
-    end
-
-    -- Personal record against this player. These totals are kept in PlayerData by
-    -- the shared VoidMark history repository, so the row stays cheap to render and
-    -- does not need to scan the full historical database on every refresh.
-    local kills = tonumber(data and data.wins) or 0
-    local deaths = tonumber(data and data.loses) or 0
-    -- The compact row must use the same lifetime repository as the details
-    -- panel/tooltip.  data.wins/data.loses can lag behind recovered or synced
-    -- kills, which made the row show e.g. 5-0 while chat correctly showed
-    -- Historical 7x.
-    if TaliaaGankRepository and TaliaaGankRepository.GetHistoricalStats then
-        local repoKills, repoDeaths = TaliaaGankRepository:GetHistoricalStats(name, data and data.guid)
-        kills = math.max(kills, tonumber(repoKills) or 0)
-        deaths = math.max(deaths, tonumber(repoDeaths) or 0)
-    end
-    local record = string.format("|cffb9a3c9%d-%d|r", kills, deaths)
-
-    local function MatchRightFont(fs)
-        if not fs then return end
-        local font, size, flags = row.RightText:GetFont()
-        if font and size then fs:SetFont(font, size, flags or "") end
-    end
-
-    -- Record: far-right column.
-    if not row.VoidMarkRecordText then
-        row.VoidMarkRecordText = row.StatusBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        row.VoidMarkRecordText:SetJustifyH("RIGHT")
-        MatchRightFont(row.VoidMarkRecordText)
-    end
-    row.VoidMarkRecordText:ClearAllPoints()
-    row.VoidMarkRecordText:SetPoint("RIGHT", row.StatusBar, "RIGHT", -2, 0)
-    row.VoidMarkRecordText:SetWidth(31)
-    row.VoidMarkRecordText:SetText(record)
-    row.VoidMarkRecordText:SetTextColor(0.73, 0.64, 0.79, opacity or 1)
-
-    -- Class: immediately left of the record.
-    if not row.VoidMarkClassText then
-        row.VoidMarkClassText = row.StatusBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        row.VoidMarkClassText:SetJustifyH("CENTER")
-        MatchRightFont(row.VoidMarkClassText)
-    end
-    row.VoidMarkClassText:ClearAllPoints()
-    row.VoidMarkClassText:SetPoint("RIGHT", row.VoidMarkRecordText, "LEFT", -3, 0)
-    row.VoidMarkClassText:SetWidth(20)
-    row.VoidMarkClassText:SetText(classIcon)
-    row.VoidMarkClassText:SetTextColor(0.90, 0.90, 0.94, opacity or 1)
-
-    -- Level: immediately left of the class icon. Reuse the original right-side
-    -- text field so no extra secure-row behavior is introduced.
-    row.RightText:ClearAllPoints()
-    row.RightText:SetPoint("RIGHT", row.VoidMarkClassText, "LEFT", -3, 0)
-    row.RightText:SetWidth(24)
-    row.RightText:SetJustifyH("RIGHT")
-    row.RightText:SetText(levelText)
-    row.RightText:SetTextColor(0.90, 0.90, 0.94, opacity or 1)
-
-    -- Threat: fixed-width column immediately left of level. Unknown stays blank,
-    -- but the slot is always reserved so KOS/HIGH/LOW never shifts.
-    if not row.VoidMarkThreatText then
-        row.VoidMarkThreatText = row.StatusBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        row.VoidMarkThreatText:SetJustifyH("RIGHT")
-        MatchRightFont(row.VoidMarkThreatText)
-    end
-    row.VoidMarkThreatText:ClearAllPoints()
-    row.VoidMarkThreatText:SetPoint("RIGHT", row.RightText, "LEFT", -3, 0)
-    row.VoidMarkThreatText:SetWidth(42)
-    row.VoidMarkThreatText:SetText(status)
-    row.VoidMarkThreatText:SetTextColor(0.90, 0.90, 0.94, opacity or 1)
-
-    -- Single fixed-width run-back timer immediately left of threat.
-    -- Yellow while counting down; red +time once return is possible.
-    if not row.VoidMarkRunBackTime then
-        row.VoidMarkRunBackTime = row.StatusBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        row.VoidMarkRunBackTime:SetJustifyH("RIGHT")
-        row.VoidMarkRunBackTime:SetWordWrap(false)
-        MatchRightFont(row.VoidMarkRunBackTime)
-    end
-    row.VoidMarkRunBackTime:ClearAllPoints()
-    row.VoidMarkRunBackTime:SetPoint("RIGHT", row.VoidMarkThreatText, "LEFT", -4, 0)
-    row.VoidMarkRunBackTime:SetWidth(48)
-    row.VoidMarkRunBackTime:SetText(runBackColor .. runBackTime .. "|r")
-    row.VoidMarkRunBackTime:SetTextColor(1, 1, 1, opacity or 1)
-
-    -- Retire the old POS/ALIVE label column from previous builds.
-    if row.VoidMarkRunBackLabel then
-        row.VoidMarkRunBackLabel:SetText("")
-        row.VoidMarkRunBackLabel:Hide()
-    end
-
-    -- Retire the older single-field timer if it exists from a prior /reload.
-    if row.VoidMarkRunBackText then
-        row.VoidMarkRunBackText:SetText("")
-        row.VoidMarkRunBackText:Hide()
-    end
-
-    local cr, cg, cb = VM.ROW_UNKNOWN[1], VM.ROW_UNKNOWN[2], VM.ROW_UNKNOWN[3]
-    if runBack then
-        cr, cg, cb = 0.24, 0.025, 0.035
-    elseif isKOS then
-        cr, cg, cb = VM.ROW_KOS[1], VM.ROW_KOS[2], VM.ROW_KOS[3]
-    elseif isHunt then
-        cr, cg, cb = VM.ROW_HUNT[1], VM.ROW_HUNT[2], VM.ROW_HUNT[3]
-    elseif threat == "HIGH" then
-        cr, cg, cb = VM.ROW_HIGH[1], VM.ROW_HIGH[2], VM.ROW_HIGH[3]
     elseif isStealth then
         cr, cg, cb = VM.ROW_STEALTH[1], VM.ROW_STEALTH[2], VM.ROW_STEALTH[3]
-    elseif threat == "LOW" then
-        cr, cg, cb = VM.ROW_LOW[1], VM.ROW_LOW[2], VM.ROW_LOW[3]
     end
 
     local alpha = opacity or 1
@@ -1075,18 +849,9 @@ function Spy:ShowVoidMarkDetails(name)
     local identity = "L" .. tostring(data.level or "?") .. " " .. tostring(data.class and (RAID_CLASS_COLORS[data.class] and data.class or data.class) or "Unknown")
     f.LevelClass:SetText(identity)
 
-    local threat, confidence = ThreatLevel(name)
-    local special = IsKOS(name) and "KOS" or (IsHunt(name) and "HUNT" or threat)
-    f.Threat:SetText(tostring(special) .. " • " .. tostring(confidence or "Unknown"))
-
-    local td = data.threatData or {}
-    local wins = tonumber(td.wins) or 0
-    local losses = tonumber(td.losses) or 0
-    local completed = wins + losses
-    local avg = 0
-    if (tonumber(td.fights) or 0) > 0 then avg = (tonumber(td.totalCombatTime) or 0) / tonumber(td.fights) end
-    f.Record:SetText(string.format("%dW - %dL • %d fights • %.1fs avg", wins, losses, completed, avg))
-    f.Damage:SetText(string.format("%d done / %d taken", tonumber(td.damageDone) or 0, tonumber(td.damageTaken) or 0))
+    if f.Threat then f.Threat:Hide() end
+    if f.Record then f.Record:Hide() end
+    if f.Damage then f.Damage:Hide() end
 
     -- Lifetime is the old Spy/gank history. Keep it separate from the newer
     -- fight-based threat record so archived kills do not appear to vanish.
@@ -1123,15 +888,6 @@ function Spy_CreateBarDropdown(self, level)
     if not player or player == "" then return end
 
     local info = UIDropDownMenu_CreateInfo()
-    info.notCheckable = true
-    info.text = IsHunt(player) and "Remove from Hunt List" or "Add to Hunt List"
-    info.func = function()
-        Spy:ToggleVoidMarkHunt(player)
-        CloseDropDownMenus(1)
-    end
-    UIDropDownMenu_AddButton(info, level)
-
-    info = UIDropDownMenu_CreateInfo()
     info.notCheckable = true
     info.text = "Details"
     info.func = function()
