@@ -2836,7 +2836,7 @@ local function PrintKillPerf()
     end
 end
 
-function GT:RecordKill(playerName, playerGUID)
+function GT:RecordKill(playerName, playerGUID, shouldAnnounce)
     if not playerName or playerName == "" then return end
 
     -- These Feign tables are declared later in the file. RecordKill can be called
@@ -2955,35 +2955,22 @@ function GT:RecordKill(playerName, playerGUID)
     perfLastMS = PerfMark(perf, "Kill Effects", perfLastMS)
     -- Feign warning / kill-effect validation refresh marker.
 
-    local todayVictimKills
-    if repositoryAdded == false then
-        -- The canonical row already exists, so do not increment the in-memory Today
-        -- counters a second time. Read the authoritative per-victim count instead
-        -- and schedule a normal history refresh after combat.
-        todayVictimKills = GetTodayVictimKillCount(playerName, playerGUID)
-        GT.lastKillName = playerName
-        GT.lastKillGUID = playerGUID
-        GT.lastKillLevel = playerLevel
-        GT.lastKillLocation = location
-        GT.lastKillHistorical = historicalKills
-        GT._historyRefreshPending = true
-    else
-        local todayCountAfterRepository = GetCurrentTodayCount(playerName, playerGUID)
-        local expectedTodayCount = (tonumber(todayCountBeforeRepository) or 0) + 1
+    local todayVictimKills = GetTodayVictimKillCount(playerName, playerGUID)
 
-        if todayCountAfterRepository >= expectedTodayCount then
-            todayVictimKills = todayCountAfterRepository
-            GT.lastKillName = playerName
-            GT.lastKillGUID = playerGUID
-            GT.lastKillLevel = playerLevel
-            GT.lastKillLocation = location
-            GT.lastKillHistorical = historicalKills
-        else
-            todayVictimKills = ApplyLocalKillToDailyStats(
-                playerName, playerGUID, playerLevel, zone, subZone, location, historicalKills
-            )
-        end
-    end
+    -- Lifetime can never be lower than today's count. During two-client sync the
+    -- victim index can trail the event ledger by a frame, so clamp the visible
+    -- announcement to the logically valid minimum while normal repair catches up.
+    historicalKills = math.max(tonumber(historicalKills) or 0, tonumber(todayVictimKills) or 0)
+
+    GT.lastKillName = playerName
+    GT.lastKillGUID = playerGUID
+    GT.lastKillLevel = playerLevel
+    GT.lastKillLocation = location
+    GT.lastKillHistorical = historicalKills
+
+    -- Rebuild the rest of today's cached counters after combat instead of trying
+    -- to locally increment them on every client that saw the same group death.
+    GT._historyRefreshPending = true
     perfLastMS = PerfMark(perf, "today/history counters", perfLastMS)
 
     levelLookup.dirty = true
@@ -2991,7 +2978,7 @@ function GT:RecordKill(playerName, playerGUID)
     -- v8.9: do not call chat/network APIs from inside the combat-log death
     -- callback. Queue the already-built message for a few hundredths of a second
     -- later so the death frame can return to the client immediately.
-    if self.partyAnnounce then
+    if self.partyAnnounce and shouldAnnounce ~= false then
         local killMessage = BuildKillAnnouncement(
             playerName, playerGUID, playerLevel, playerClass, location, historicalKills, todayVictimKills
         )
@@ -4658,7 +4645,7 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
             -- Remember the authoritative real-kill signal so the following
             -- UNIT_DIED is not mistaken for Feign.
             ConfirmHunterRealDeath(destGUID, destName)
-            GT:RecordKill(destName, destGUID)
+            GT:RecordKill(destName, destGUID, sourceGUID == playerGUID)
             recentOutgoingVictims[destGUID] = nil
             return
         end
