@@ -409,25 +409,24 @@ function Spy:RemoveIgnoreData(name)
 end
 
 function Spy:AddKOSData(name)
+	if not name or name == "" then return end
 	SpyPerCharDB.KOSData[name] = time()
---	SpyPerCharDB.PlayerData[name].kos = 1 
-	if Spy.db.profile.ShareKOSBetweenCharacters then
-		SpyDB.removeKOSData[Spy.RealmName][Spy.FactionName][name] = nil
+	local playerData = SpyPerCharDB.PlayerData[name]
+	if playerData then
+		playerData.kos = 1
 	end
 end
 
 function Spy:RemoveKOSData(name)
+	if not name or name == "" then return end
 	if SpyPerCharDB.KOSData[name] then
 		local playerData = SpyPerCharDB.PlayerData[name]
 		if playerData and playerData.reason then
 			playerData.reason = nil
 		end
 		SpyPerCharDB.KOSData[name] = nil
-		if SpyPerCharDB.PlayerData[name] then
-			SpyPerCharDB.PlayerData[name].kos = nil
-		end
-		if Spy.db.profile.ShareKOSBetweenCharacters then
-			SpyDB.removeKOSData[Spy.RealmName][Spy.FactionName][name] = time()
+		if playerData then
+			playerData.kos = nil
 		end
 	end
 end
