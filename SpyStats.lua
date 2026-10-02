@@ -492,6 +492,14 @@ function SpyStats:Filter()
 end
 
 function SpyStats:Refresh()
+    -- FauxScrollFrame invokes this as a plain callback (SpyStats.Refresh),
+    -- so "self" can be the scroll frame instead of the SpyStats addon object.
+    -- Normalize it here so scrolling never loses the cached full-data footer
+    -- summary and temporarily renders W/L/% as zero.
+    if self ~= SpyStats then
+        self = SpyStats
+    end
+
     if self.refreshing then
 		return
 	end
