@@ -1,4 +1,5 @@
 -- TaliaaSpy Gank Tracker
+-- Panic Circle/Banner repush: 2026-10-02
 local GANKTRACKER_BUILD = "2026-09-28 PET-DAILY-CLEAN-FOOTER"
 -- Daily combined kill tracker + reload-safe local session + global historical repository.
 -- Daily victim announcement count fix build: 2026-08-25
