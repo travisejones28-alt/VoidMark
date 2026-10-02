@@ -3997,7 +3997,10 @@ panicFrame.Button.Label:SetText("PANIC  •  0")
 panicFrame.Button:SetScript("OnDragStart", StartPanicDrag)
 panicFrame.Button:SetScript("OnDragStop", StopPanicDrag)
 panicFrame.Button:SetScript("OnEnter", function(self)
-    self:SetBackdropColor(0.43, 0.035, 0.08, 1)
+    -- Keep the custom Panic artwork fully transparent on hover. The old
+    -- stock hover treatment painted a red rectangular backdrop behind it.
+    self:SetBackdropColor(0, 0, 0, 0)
+    self:SetBackdropBorderColor(0, 0, 0, 0)
     self.Label:SetTextColor(1, 1, 1, 1)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine("VoidMark Panic", 0.88, 0.56, 1.0)
