@@ -3655,17 +3655,16 @@ panicStyleDropdown:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 78, -142)
 UIDropDownMenu_SetWidth(panicStyleDropdown, 88)
 
 local PANIC_STYLE_NAMES = {
-    skull = "Void Skull",
-    diamond = "Diamond",
     ring = "Ring",
     banner = "Banner",
 }
 
-local PANIC_STYLE_ORDER = {"skull", "diamond", "ring", "banner"}
+local PANIC_STYLE_ORDER = {"ring", "banner"}
 
 local function GetPanicStyle()
-    local style = SpyDB and SpyDB.VoidMarkPanicStyle or "skull"
-    if not PANIC_STYLE_NAMES[style] then style = "skull" end
+    local style = SpyDB and SpyDB.VoidMarkPanicStyle or "ring"
+    if style ~= "banner" then style = "ring" end
+    if SpyDB then SpyDB.VoidMarkPanicStyle = style end
     return style
 end
 
@@ -4002,8 +4001,8 @@ panicFrame.Button:SetScript("OnEnter", function(self)
     GameTooltip:AddLine("VoidMark Panic", 0.88, 0.56, 1.0)
     GameTooltip:AddLine("Click: send a PANIC call with relevant nearby enemy levels and your coordinates.", 0.88, 0.88, 0.92, true)
     GameTooltip:AddLine("Drag: move this button.", 0.68, 0.62, 0.72)
-    local style = (SpyDB and SpyDB.VoidMarkPanicStyle) or "skull"
-    GameTooltip:AddLine("Style: " .. tostring(PANIC_STYLE_NAMES[style] or "Void Skull"), 0.58, 0.48, 0.68)
+    local style = GetPanicStyle()
+    GameTooltip:AddLine("Style: " .. tostring(PANIC_STYLE_NAMES[style] or "Ring"), 0.58, 0.48, 0.68)
     GameTooltip:Show()
 end)
 panicFrame.Button:SetScript("OnLeave", function(self)
@@ -4021,8 +4020,7 @@ RefreshPanicStyle = function()
         return
     end
 
-    local style = (SpyDB and SpyDB.VoidMarkPanicStyle) or "skull"
-    if not PANIC_STYLE_NAMES[style] then style = "skull" end
+    local style = GetPanicStyle()
 
     local button = panicFrame.Button
     button:ClearAllPoints()
@@ -4883,7 +4881,7 @@ SlashCmdList["TALIAAGANK"] = function(msg)
             if RefreshPanicStyle then RefreshPanicStyle() end
             Print("Panic style: " .. PANIC_STYLE_NAMES[want])
         else
-            Print("Panic styles: skull, diamond, ring, banner")
+            Print("Panic styles: ring, banner")
         end
     elseif cmd == "panic" then
         GT:Panic()
