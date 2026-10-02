@@ -776,6 +776,33 @@ function Spy:RegenerateKOSListFromCentral()
 	-- delete the canonical account-wide TaliaaShared.KOSData table.
 	return
 end
+function Spy:ButtonClicked(self, button)
+	local name = Spy.ButtonName[self.id]
+	if name and name ~= "" then
+		if button == "LeftButton" then
+			if IsShiftKeyDown() then
+				if SpyPerCharDB.KOSData[name] then
+					Spy:ToggleKOSPlayer(false, name)
+				else
+					Spy:ToggleKOSPlayer(true, name)
+				end
+			elseif IsControlKeyDown() then
+				if SpyPerCharDB.IgnoreData[name] then
+					Spy:ToggleIgnorePlayer(false, name)
+				else
+					Spy:ToggleIgnorePlayer(true, name)
+				end
+			else
+				-- Normal targeting is handled by the secure row macro.
+			end
+		elseif button == "RightButton" then
+			Spy:BarDropDownOpen(self)
+			CloseDropDownMenus(1)
+			ToggleDropDownMenu(1, nil, Spy_BarDropDownMenu)
+		end
+	end
+end
+
 function Spy:AppendUnitNames()
 	for key, unit in pairs(SpyPerCharDB.PlayerData) do	
 		-- find any units without a name
