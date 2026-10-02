@@ -803,6 +803,181 @@ function Spy:ButtonClicked(self, button)
 	end
 end
 
+function Spy:ParseUnitAbility(analyseSpell, event, player, class, race, spellId, spellName)
+	local learnt = false
+	if player then
+--		local class = nil
+		local level = nil
+--		local race = nil
+		local isEnemy = true
+		local isGuess = true
+
+		local playerData = SpyPerCharDB.PlayerData[player]
+		if not playerData or playerData.isEnemy == nil then
+			learnt = true
+		end
+
+		if analyseSpell then
+			local abilityType = strsub(event, 1, 5)
+			if abilityType == "SWING" or abilityType == "SPELL" or abilityType == "RANGE" then
+--				local ability = Spy_AbilityList[spellName]
+				local ability = Spy_AbilityList[spellId]
+				if ability then
+					if class == nil then
+						if ability.class and not (playerData and playerData.class) then
+							class = ability.class
+							learnt = true
+						end
+					end
+					if ability.level then
+						local playerLevelNumber = nil
+						if playerData and playerData.level then
+							playerLevelNumber = tonumber(playerData.level)
+						end
+						if type(playerLevelNumber) ~= "number" or playerLevelNumber < ability.level then
+							level = ability.level
+							learnt = true
+						end
+					end
+					if race == nil then
+						if ability.race and not (playerData and playerData.race) then
+							race = ability.race
+							learnt = true
+						end
+					end	
+				else	
+--					print(spellId, " - ", spellName)
+				end
+				if class and race and level == Spy.MaximumPlayerLevel then
+					isGuess = false
+					learnt = true
+				end
+			end
+		end
+
+		Spy:UpdatePlayerData(player, class, level, race, nil, nil, isEnemy, isGuess)
+		return learnt, playerData
+	end
+	return learnt, nil
+end
+
+function Spy:ParseUnitDetails(player, class, level, race, zone, subZone, mapX, mapY, guild, mapID)
+	if player then
+		local playerData = SpyPerCharDB.PlayerData[player]
+		if not playerData then
+			playerData = Spy:AddPlayerData(player, class, level, race, guild, nil, true, true)
+		else
+			if not playerData.class then playerData.class = class end
+			if level then
+				local levelNumber = tonumber(level)
+				if type(levelNumber) == "number" then
+					if playerData.level then
+						local playerLevelNumber = tonumber(playerData.level)
+						if type(playerLevelNumber) == "number" and playerLevelNumber < levelNumber then playerData.level = levelNumber end
+					else
+						playerData.level = levelNumber
+					end
+				end
+			end
+			if not playerData.race then
+				playerData.race = race
+			end
+			if not playerData.guild then
+				playerData.guild = guild
+			end
+		end
+		playerData.isEnemy = true
+		playerData.time = time()
+		playerData.zone = zone
+		playerData.mapID = mapID
+		playerData.subZone = subZone
+		playerData.mapX = mapX
+		playerData.mapY = mapY
+
+		return true, playerData
+	end
+	return true, nil
+end
+
+function Spy:AddDetected(player, timestamp, learnt, source)
+	-- TaliaaSpy Panic Tracker: remember locally seen enemies for 30-second count.
+	if TaliaaGankTracker and TaliaaGankTracker.NoteEnemySeen then
+		TaliaaGankTracker:NoteEnemySeen(player, timestamp, source)
+	end
+
+	if Spy.db.profile.StopAlertsOnTaxi then
+		if not UnitOnTaxi("player") then 
+			Spy:AddDetectedToLists(player, timestamp, learnt, source)
+		end
+	else
+		Spy:AddDetectedToLists(player, timestamp, learnt, source)
+	end
+--[[if Spy.db.profile.ShowOnlyPvPFlagged then
+		if UnitIsPVP("target") then
+			Spy:AddDetectedToLists(player, timestamp, learnt, source)
+		end	
+	else
+		Spy:AddDetectedToLists(player, timestamp, learnt, source)
+	end ]]--
+end
+
+function Spy:AddDetectedToLists(player, timestamp, learnt, source)
+	if not Spy.NearbyList[player] then
+		if Spy.db.profile.ShowOnDetection and not Spy.db.profile.MainWindowVis then
+			Spy:SetCurrentList(1)
+			Spy:EnableSpy(true, true, true)
+		end
+		if Spy.db.profile.CurrentList ~= 1 and Spy.db.profile.MainWindowVis and Spy.db.profile.ShowNearbyList then
+			Spy:SetCurrentList(1)
+		end
+
+		if source and source ~= Spy.CharacterName and not Spy.ActiveList[player] then
+			Spy.NearbyList[player] = timestamp
+			Spy.LastHourList[player] = timestamp
+			Spy.InactiveList[player] = timestamp
+		else
+			Spy.NearbyList[player] = timestamp
+			Spy.LastHourList[player] = timestamp
+			Spy.ActiveList[player] = timestamp
+			Spy.InactiveList[player] = nil
+		end
+
+		if Spy.db.profile.CurrentList == 1 then
+			Spy:RefreshCurrentList(player, source)
+			Spy:UpdateActiveCount()			
+		else
+			if not source or source ~= Spy.CharacterName then
+				Spy:AlertPlayer(player, source)
+				if not source then Spy:AnnouncePlayer(player) end
+			end
+		end
+	elseif not Spy.ActiveList[player] then
+		if Spy.db.profile.ShowOnDetection and not Spy.db.profile.MainWindowVis then
+			Spy:SetCurrentList(1)
+			Spy:EnableSpy(true, true, true)
+		end
+		if Spy.db.profile.CurrentList ~= 1 and Spy.db.profile.MainWindowVis and Spy.db.profile.ShowNearbyList then
+			Spy:SetCurrentList(1)
+		end
+
+		Spy.LastHourList[player] = timestamp
+		Spy.ActiveList[player] = timestamp
+		Spy.InactiveList[player] = nil
+
+		if Spy.db.profile.CurrentList == 1 then
+			Spy:RefreshCurrentList()
+			Spy:UpdateActiveCount()
+		end
+	else
+		Spy.ActiveList[player] = timestamp
+		Spy.LastHourList[player] = timestamp
+		if learnt and Spy.db.profile.CurrentList == 1 then
+			Spy:RefreshCurrentList()
+			Spy:UpdateActiveCount()
+		end
+	end
+end
+
 function Spy:AppendUnitNames()
 	for key, unit in pairs(SpyPerCharDB.PlayerData) do	
 		-- find any units without a name
