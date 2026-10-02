@@ -2669,6 +2669,12 @@ end
 
 function Repo:RecordKill(playerName, playerGUID, details)
     if not playerName or playerName == "" then return 0 end
+
+    -- Final battleground safety gate. GankTracker normally blocks these first,
+    -- but repository writes are protected too in case another caller is added.
+    if Spy and Spy.ShouldIgnoreBattlegroundStats and Spy:ShouldIgnoreBattlegroundStats() then
+        return self:GetHistoricalCount(playerName, playerGUID), false
+    end
     if IsExplicitNonPlayerGUID(playerGUID) then return 0 end
 
     -- Final safety net: any caller that bypasses GankTracker still cannot write
