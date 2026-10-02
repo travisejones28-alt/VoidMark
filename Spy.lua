@@ -1170,7 +1170,7 @@ local Default_Profile = {
 	},
 }
 
-SM:Register("statusbar", "Flat", [[Interface\Addons\TaliaaSpy\Textures\bar-flat.tga]])
+SM:Register("statusbar", "Flat", [[Interface\Addons\VoidMark\Textures\bar-flat.tga]])
 
 function Spy:CheckDatabase()
 
@@ -1704,28 +1704,15 @@ end
 function Spy:MigrateClusterRealmData()
 	if not SpyDB or not Spy.ActualRealmName or Spy.ActualRealmName == Spy.RealmName then return end
 
+	-- Preserve legacy KOS mirrors for one-time recovery only. Do NOT migrate
+	-- removeKOSData tombstones into the canonical cluster; those stale markers
+	-- caused valid KOS entries to be deleted on login in older VoidMark builds.
 	SpyDB.kosData = SpyDB.kosData or {}
 	SpyDB.kosData[Spy.RealmName] = SpyDB.kosData[Spy.RealmName] or {}
 	if SpyDB.kosData[Spy.ActualRealmName] then
 		TaliaaCopyMissing(SpyDB.kosData[Spy.RealmName], SpyDB.kosData[Spy.ActualRealmName])
 	end
-
-	SpyDB.removeKOSData = SpyDB.removeKOSData or {}
-	SpyDB.removeKOSData[Spy.RealmName] = SpyDB.removeKOSData[Spy.RealmName] or {}
-	local oldRemoved = SpyDB.removeKOSData[Spy.ActualRealmName]
-	if oldRemoved then
-		for faction, players in pairs(oldRemoved) do
-			SpyDB.removeKOSData[Spy.RealmName][faction] = SpyDB.removeKOSData[Spy.RealmName][faction] or {}
-			for player, removedAt in pairs(players) do
-				local current = SpyDB.removeKOSData[Spy.RealmName][faction][player]
-				if current == nil or (tonumber(removedAt) or 0) > (tonumber(current) or 0) then
-					SpyDB.removeKOSData[Spy.RealmName][faction][player] = removedAt
-				end
-			end
-		end
-	end
 end
-
 function Spy:SanitizeStage1Profile()
 	if not Spy.db or not Spy.db.profile then return end
 	local profile = Spy.db.profile
