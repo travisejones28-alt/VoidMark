@@ -1,26 +1,7 @@
 local FONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 local ROOT = "Interface\\AddOns\\VoidMark\\Media\\Panic\\"
-local GT = TaliaaGankTracker
 
 local STYLE_SPEC = {
-    skull = {
-        texture = ROOT .. "panic_voidskull.tga",
-        frameW = 128, frameH = 128,
-        artW = 128, artH = 128,
-        text = "stack",
-        textX = 0, textY = 24,
-        textW = 72,
-        fontSize = 15,
-    },
-    diamond = {
-        texture = ROOT .. "panic_diamond.blp",
-        frameW = 126, frameH = 126,
-        artW = 126, artH = 126,
-        text = "stack",
-        textX = 0, textY = 26,
-        textW = 72,
-        fontSize = 15,
-    },
     ring = {
         texture = ROOT .. "panic_ring.blp",
         frameW = 126, frameH = 126,
@@ -45,14 +26,20 @@ local TICK = 0.15
 local elapsedSinceUpdate = 0
 local lastStyle, lastCount, lastText = nil, nil, nil
 
+local function GetTracker()
+    return TaliaaGankTracker
+end
+
 local function CurrentStyle()
-    local style = (SpyDB and SpyDB.VoidMarkPanicStyle) or "skull"
-    if not STYLE_SPEC[style] then style = "skull" end
+    local style = (SpyDB and SpyDB.VoidMarkPanicStyle) or "ring"
+    if style ~= "banner" then style = "ring" end
+    if SpyDB then SpyDB.VoidMarkPanicStyle = style end
     return style
 end
 
-local function ThreatCount()
-    local GT = TaliaaGankTracker
+local function ThreatCount(forcedCount)
+    if forcedCount ~= nil then return tonumber(forcedCount) or 0 end
+    local GT = GetTracker()
     if GT and GT.GetRecentEnemyCount then
         local ok, count = pcall(GT.GetRecentEnemyCount, GT, 30)
         if ok then return tonumber(count) or 0 end
@@ -73,7 +60,7 @@ local function ThreatColor(count)
 end
 
 local function GetObjects()
-    local GT = TaliaaGankTracker
+    local GT = GetTracker()
     local pf = GT and GT.PanicFrame
     local b = pf and pf.Button
     local label = b and b.Label
@@ -83,26 +70,15 @@ end
 
 local function EnsureArt(button)
     if button.PanicArt then return end
-
     button.PanicArt = button:CreateTexture(nil, "ARTWORK", nil, -4)
     button.PanicPulse = button:CreateTexture(nil, "ARTWORK", nil, -3)
     button.PanicPulse:SetBlendMode("ADD")
     button.PanicPulse:SetAlpha(0)
-
-    if button.Icon then button.Icon:Hide() end
-    if button.Accent then button.Accent:Hide() end
-    if button.StyleDiamond then button.StyleDiamond:Hide() end
-    if button.StyleRing then button.StyleRing:Hide() end
-    if button.StyleRingGlow then button.StyleRingGlow:Hide() end
-    if button.BannerLeft then button.BannerLeft:Hide() end
-    if button.BannerRight then button.BannerRight:Hide() end
-    if button.VoidGlow then button.VoidGlow:Hide() end
 end
 
 local function ApplyVisualReset(pf, button)
     pf:SetBackdropColor(0, 0, 0, 0)
     pf:SetBackdropBorderColor(0, 0, 0, 0)
-
     button:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8" })
     button:SetBackdropColor(0, 0, 0, 0)
     button:SetBackdropBorderColor(0, 0, 0, 0)
@@ -167,9 +143,7 @@ local function UpdateDisplay(force, forcedCount)
 
     local style = lastStyle or CurrentStyle()
     local spec = STYLE_SPEC[style]
-    local count = forcedCount
-    if count == nil then count = ThreatCount() end
-    count = tonumber(count) or 0
+    local count = ThreatCount(forcedCount)
 
     local text
     if spec.text == "banner" then
@@ -201,20 +175,30 @@ local function UpdateDisplay(force, forcedCount)
     button.PanicPulse:SetAlpha(alpha)
 end
 
-function GT:RefreshPanicArt(force, forcedCount)
-    UpdateDisplay(force and true or false, forcedCount)
+local function AttachRefreshHook()
+    local GT = GetTracker()
+    if not GT or GT.RefreshPanicArt then return end
+    function GT:RefreshPanicArt(forceRefresh, forcedCount)
+        UpdateDisplay(forceRefresh and true or false, forcedCount)
+    end
 end
 
 local driver = CreateFrame("Frame")
 driver:RegisterEvent("PLAYER_LOGIN")
 driver:RegisterEvent("PLAYER_ENTERING_WORLD")
 driver:SetScript("OnEvent", function()
-    C_Timer.After(0.5, function() UpdateDisplay(true) end)
+    AttachRefreshHook()
+    C_Timer.After(0.5, function()
+        AttachRefreshHook()
+        UpdateDisplay(true)
+    end)
 end)
 driver:SetScript("OnUpdate", function(_, elapsed)
     elapsedSinceUpdate = elapsedSinceUpdate + elapsed
     if elapsedSinceUpdate < TICK then return end
     elapsedSinceUpdate = 0
+
+    AttachRefreshHook()
 
     local _, pf = GetObjects()
     if not pf or not pf:IsShown() then return end
