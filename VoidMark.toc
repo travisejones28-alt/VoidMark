@@ -29,7 +29,7 @@ SpyData.lua
 GankRepository.lua
 KillEffects.lua
 GankTracker.lua
-Modules\PanicArt.lua
+# Modules\PanicArt.lua
 
 # Integrated corpse-run engine
 RunBack\Core.lua
