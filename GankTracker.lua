@@ -1706,6 +1706,8 @@ function GT:RefreshVoidMarkCompact()
     end
 end
 
+local RestorePanicVisibility
+
 UpdateDisplay = function()
     -- Nothing in the full tracker repaint is combat-critical. Weekly/repository
     -- totals can touch thousands of rows when their cache invalidates, so any
@@ -3918,7 +3920,7 @@ local function RestorePanicPosition()
 end
 RestorePanicPosition()
 
-local function RestorePanicVisibility()
+RestorePanicVisibility = function()
     if not GT.PanicFrame then return end
     local enabled = SpyDB and SpyDB.VoidMarkShowPanicButton == true
     if enabled then
