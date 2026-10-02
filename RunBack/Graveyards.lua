@@ -5,6 +5,17 @@ function A:Eligible(team,faction)
     return team==0 or not faction or faction=="Unknown" or (team==469 and faction=="Alliance") or (team==67 and faction=="Horde")
 end
 
+local function IsUsableGraveyard(g)
+    if not g then return false end
+    -- Classic-DB includes test/internal graveyards that are not valid player
+    -- release points. Never let those drive a PvP corpse-run timer.
+    local name=string.lower(tostring(g.name or ""))
+    if name:find("gm client",1,true) or name:find("do not bug",1,true) or name:find("test",1,true) then
+        return false
+    end
+    return true
+end
+
 function A:ResolveLinks(area,faction)
     local key=tostring(area)..":"..tostring(faction)
     if self.linkCache[key] then return self.linkCache[key][1],self.linkCache[key][2] end
@@ -13,7 +24,7 @@ function A:ResolveLinks(area,faction)
         for _,link in ipairs(self.Data.links[id] or {}) do
             if self:Eligible(link[2],faction) then
                 local gy=self.Data.graveyards[link[1]]
-                if gy then out[#out+1]={gy=gy,team=link[2],area=id} end
+                if IsUsableGraveyard(gy) then out[#out+1]={gy=gy,team=link[2],area=id} end
             end
         end
         if #out>0 then
@@ -40,6 +51,26 @@ function A:RefreshLiveGraveyards(ui)
 end
 
 function A:ResolveGraveyard(p,area,faction,exactArea)
+    -- Scarlet Monastery special case. Faol's Rest (GY 429) is the actual
+    -- Alliance release graveyard for deaths around the monastery. Some static
+    -- subarea assignments in the imported Classic-DB data can resolve to a
+    -- farther Tirisfal graveyard first, producing obviously inflated timers.
+    local faol=self.Data.graveyards and self.Data.graveyards[429]
+    if faction=="Alliance" and p and faol and IsUsableGraveyard(faol) then
+        local faolDistance=self:Distance(p,faol)
+        if faolDistance and faolDistance<=1200 then
+            return {
+                predicted=faol,
+                candidates={faol},
+                assignmentArea=area,
+                reason=string.format("Scarlet Monastery / eastern Tirisfal override: Faol's Rest is %.0f yd away",faolDistance),
+                source="VoidMark verified Scarlet Monastery override",
+                exactArea=exactArea,
+                candidateScope="Scarlet Monastery / Faol's Rest vicinity",
+            }
+        end
+    end
+
     local links,used=self:ResolveLinks(area,faction)
     local predicted,best
 
