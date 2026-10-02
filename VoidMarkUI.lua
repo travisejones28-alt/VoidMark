@@ -666,16 +666,110 @@ function VM:StyleRow(num, name, desc, opacity)
         marker = "|TInterface\\Icons\\Ability_Stealth:13:13:0:0|t "
     end
 
-    -- Main Nearby/KOS/etc. rows only show the character name.
-    -- Keep the full Name-Realm internally on row.Name/Spy.ButtonName so
-    -- targeting, KOS, history and cross-realm database lookups still work.
     local displayName = tostring(name):match("^([^%-]+)") or tostring(name)
     row.LeftText:SetText(marker .. displayName)
     row.LeftText:SetTextColor(r, g, b, opacity or 1)
 
-    local status
-    if isKOS then
-        status = "|cffff4d5dKOS|r"
+    local status = isKOS and "|cffff4d5dKOS|r" or ""
+
+    -- Integrated corpse run timer.
+    local runBack = Spy.GetRunBackDisplay and Spy:GetRunBackDisplay(name) or nil
+    local runBackTime = ""
+    local runBackColor = "|cffffd84d"
+    if runBack then
+        if runBack.ready then
+            runBackColor = "|cffff5b65"
+        end
+        runBackTime = runBack.time or ""
+    end
+
+    local levelText = (data and data.level) and tostring(data.level) or ""
+    local classIcon = ClassIconTag(class, 16)
+    if classIcon == "" and class then
+        classIcon = tostring(class)
+    end
+
+    local kills = tonumber(data and data.wins) or 0
+    local deaths = tonumber(data and data.loses) or 0
+    if TaliaaGankRepository and TaliaaGankRepository.GetHistoricalStats then
+        local repoKills, repoDeaths = TaliaaGankRepository:GetHistoricalStats(name, data and data.guid)
+        kills = math.max(kills, tonumber(repoKills) or 0)
+        deaths = math.max(deaths, tonumber(repoDeaths) or 0)
+    end
+    local record = string.format("|cffb9a3c9%d-%d|r", kills, deaths)
+
+    local function MatchRightFont(fs)
+        if not fs then return end
+        local font, size, flags = row.RightText:GetFont()
+        if font and size then fs:SetFont(font, size, flags or "") end
+    end
+
+    if not row.VoidMarkRecordText then
+        row.VoidMarkRecordText = row.StatusBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.VoidMarkRecordText:SetJustifyH("RIGHT")
+        MatchRightFont(row.VoidMarkRecordText)
+    end
+    row.VoidMarkRecordText:ClearAllPoints()
+    row.VoidMarkRecordText:SetPoint("RIGHT", row.StatusBar, "RIGHT", -2, 0)
+    row.VoidMarkRecordText:SetWidth(31)
+    row.VoidMarkRecordText:SetText(record)
+    row.VoidMarkRecordText:SetTextColor(0.73, 0.64, 0.79, opacity or 1)
+
+    if not row.VoidMarkClassText then
+        row.VoidMarkClassText = row.StatusBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.VoidMarkClassText:SetJustifyH("CENTER")
+        MatchRightFont(row.VoidMarkClassText)
+    end
+    row.VoidMarkClassText:ClearAllPoints()
+    row.VoidMarkClassText:SetPoint("RIGHT", row.VoidMarkRecordText, "LEFT", -3, 0)
+    row.VoidMarkClassText:SetWidth(20)
+    row.VoidMarkClassText:SetText(classIcon)
+    row.VoidMarkClassText:SetTextColor(0.90, 0.90, 0.94, opacity or 1)
+
+    row.RightText:ClearAllPoints()
+    row.RightText:SetPoint("RIGHT", row.VoidMarkClassText, "LEFT", -3, 0)
+    row.RightText:SetWidth(24)
+    row.RightText:SetJustifyH("RIGHT")
+    row.RightText:SetText(levelText)
+    row.RightText:SetTextColor(0.90, 0.90, 0.94, opacity or 1)
+
+    if not row.VoidMarkThreatText then
+        row.VoidMarkThreatText = row.StatusBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.VoidMarkThreatText:SetJustifyH("RIGHT")
+        MatchRightFont(row.VoidMarkThreatText)
+    end
+    row.VoidMarkThreatText:ClearAllPoints()
+    row.VoidMarkThreatText:SetPoint("RIGHT", row.RightText, "LEFT", -3, 0)
+    row.VoidMarkThreatText:SetWidth(42)
+    row.VoidMarkThreatText:SetText(status)
+    row.VoidMarkThreatText:SetTextColor(0.90, 0.90, 0.94, opacity or 1)
+
+    if not row.VoidMarkRunBackTime then
+        row.VoidMarkRunBackTime = row.StatusBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.VoidMarkRunBackTime:SetJustifyH("RIGHT")
+        row.VoidMarkRunBackTime:SetWordWrap(false)
+        MatchRightFont(row.VoidMarkRunBackTime)
+    end
+    row.VoidMarkRunBackTime:ClearAllPoints()
+    row.VoidMarkRunBackTime:SetPoint("RIGHT", row.VoidMarkThreatText, "LEFT", -4, 0)
+    row.VoidMarkRunBackTime:SetWidth(48)
+    row.VoidMarkRunBackTime:SetText(runBackColor .. runBackTime .. "|r")
+    row.VoidMarkRunBackTime:SetTextColor(1, 1, 1, opacity or 1)
+
+    if row.VoidMarkRunBackLabel then
+        row.VoidMarkRunBackLabel:SetText("")
+        row.VoidMarkRunBackLabel:Hide()
+    end
+    if row.VoidMarkRunBackText then
+        row.VoidMarkRunBackText:SetText("")
+        row.VoidMarkRunBackText:Hide()
+    end
+
+    local cr, cg, cb = VM.ROW_UNKNOWN[1], VM.ROW_UNKNOWN[2], VM.ROW_UNKNOWN[3]
+    if runBack then
+        cr, cg, cb = 0.24, 0.025, 0.035
+    elseif isKOS then
+        cr, cg, cb = VM.ROW_KOS[1], VM.ROW_KOS[2], VM.ROW_KOS[3]
     elseif isStealth then
         cr, cg, cb = VM.ROW_STEALTH[1], VM.ROW_STEALTH[2], VM.ROW_STEALTH[3]
     end
@@ -684,14 +778,15 @@ function VM:StyleRow(num, name, desc, opacity)
     if Spy.db and Spy.db.profile and Spy.db.profile.CurrentList == 1 then
         local seenAt = Spy.NearbyList and Spy.NearbyList[name]
         local age = seenAt and (time() - seenAt) or 0
-        if age > 45 then alpha = math.min(alpha, 0.55)
-        elseif age > 15 then alpha = math.min(alpha, 0.78)
+        if age > 45 then
+            alpha = math.min(alpha, 0.55)
+        elseif age > 15 then
+            alpha = math.min(alpha, 0.78)
         end
     end
 
     row.StatusBar:SetStatusBarColor(cr, cg, cb, alpha)
-    -- Reserve the full fixed right-side block for Timer/Threat/Level/Class/Record.
-    -- This prevents long names from drawing underneath those columns.
+
     local rightColumnsWidth = 46 + 4 + 42 + 3 + 24 + 3 + 20 + 3 + 31 + 4
     row.LeftText:SetWidth(math.max(40, row:GetWidth() - rightColumnsWidth - 4))
 end
