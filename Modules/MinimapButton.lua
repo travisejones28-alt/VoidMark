@@ -124,7 +124,9 @@ function MM:Create()
     b.icon = b:CreateTexture(nil, "ARTWORK")
     b.icon:SetPoint("TOPLEFT", b, "TOPLEFT", 5, -5)
     b.icon:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -5, 5)
+    -- Plain panic skull: matches VoidMark's non-banner panic visual.
     b.icon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
+    b.icon:SetTexCoord(0, 1, 0, 1)
     b.icon:SetVertexColor(0.78, 0.48, 1.0, 1)
 
     b.highlight = b:CreateTexture(nil, "HIGHLIGHT")
