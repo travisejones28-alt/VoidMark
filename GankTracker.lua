@@ -2509,24 +2509,44 @@ end
 
 local function GetTodayVictimKillCount(playerName, playerGUID)
     local history = DailyHistory()
-    if not history or type(history.events) ~= "table" then
+    if not history then
         return GetVictimKillCount(playerName)
     end
 
     local now = DailyNow()
     local dayStart = DailyRealmDayStart(now)
-    local count = 0
+    local victim = nil
+    local guid = tostring(playerGUID or "")
 
-    for _, event in pairs(history.events) do
-        if type(event) == "table" then
-            local eventTime = tonumber(event.t) or 0
-            if eventTime >= dayStart and eventTime <= (now + 60)
-                and SameVictimIdentity(event.name, event.guid, playerName, playerGUID) then
-                count = count + 1
+    -- Repository victim.events is the deduped canonical per-victim event index.
+    -- Do not count raw history.events here: older/synced duplicate rows can remain
+    -- in that ledger temporarily even though victim.kills correctly represents one
+    -- physical death.
+    if IsPlayerGUID(guid) and type(history.victims) == "table" then
+        victim = history.victims["G:" .. guid]
+    end
+
+    if not victim and type(history.victims) == "table" then
+        for _, candidate in pairs(history.victims) do
+            if type(candidate) == "table"
+                and SameVictimIdentity(candidate.name, candidate.guid, playerName, playerGUID) then
+                victim = candidate
+                break
             end
         end
     end
 
+    if type(victim) ~= "table" or type(victim.events) ~= "table" then
+        return 0
+    end
+
+    local count = 0
+    for _, stamp in pairs(victim.events) do
+        local eventTime = tonumber(stamp) or 0
+        if eventTime >= dayStart and eventTime <= (now + 60) then
+            count = count + 1
+        end
+    end
     return count
 end
 
