@@ -2564,7 +2564,7 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 			then
 				-- Count the gank immediately, even if somebody else got the KB.
 				if TaliaaGankTracker and TaliaaGankTracker.RecordKill then
-					TaliaaGankTracker:RecordKill(dstName, dstGUID)
+					TaliaaGankTracker:RecordKill(dstName, dstGUID, false)
 				end
 				Spy.GankRecentDamage[dstName] = nil
 
@@ -2643,7 +2643,7 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 					TaliaaGankTracker:ConfirmHunterRealDeath(dstGUID, dstName)
 				end
 				if TaliaaGankTracker and TaliaaGankTracker.RecordKill then
-					TaliaaGankTracker:RecordKill(dstName, dstGUID)
+					TaliaaGankTracker:RecordKill(dstName, dstGUID, sourceIsPlayer)
 				end
 				Spy.GankRecentDamage[dstName] = nil
 
