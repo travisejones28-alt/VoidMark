@@ -3,21 +3,21 @@ local ROOT = "Interface\\AddOns\\VoidMark\\Media\\Panic\\"
 
 local STYLE_SPEC = {
     ring = {
-        texture = ROOT .. "panic_ring.blp",
-        frameW = 126, frameH = 126,
-        artW = 126, artH = 126,
+        texture = ROOT .. "panic_circle.tga",
+        frameW = 132, frameH = 132,
+        artW = 132, artH = 132,
         text = "stack",
         textX = 0, textY = 0,
-        textW = 78,
+        textW = 80,
         fontSize = 15,
     },
     banner = {
-        texture = ROOT .. "panic_ring.blp",
-        frameW = 260, frameH = 92,
-        artW = 86, artH = 86,
+        texture = ROOT .. "panic_banner.tga",
+        frameW = 300, frameH = 150,
+        artW = 300, artH = 150,
         text = "banner",
-        textX = 54, textY = 0,
-        textW = 150,
+        textX = 58, textY = 0,
+        textW = 172,
         fontSize = 14,
     },
 }
@@ -70,19 +70,6 @@ end
 
 local function EnsureArt(button)
     if button.PanicArt then return end
-
-    button.BannerPlate = button:CreateTexture(nil, "ARTWORK", nil, -6)
-    button.BannerPlate:SetTexture("Interface\\Buttons\\WHITE8X8")
-    button.BannerPlate:SetVertexColor(0.06, 0.01, 0.09, 0.92)
-
-    button.BannerTop = button:CreateTexture(nil, "ARTWORK", nil, -5)
-    button.BannerTop:SetTexture("Interface\\Buttons\\WHITE8X8")
-    button.BannerTop:SetVertexColor(0.65, 0.16, 0.90, 0.95)
-
-    button.BannerBottom = button:CreateTexture(nil, "ARTWORK", nil, -5)
-    button.BannerBottom:SetTexture("Interface\\Buttons\\WHITE8X8")
-    button.BannerBottom:SetVertexColor(0.65, 0.16, 0.90, 0.95)
-
     button.PanicArt = button:CreateTexture(nil, "ARTWORK", nil, -4)
     button.PanicPulse = button:CreateTexture(nil, "ARTWORK", nil, -3)
     button.PanicPulse:SetBlendMode("ADD")
@@ -104,10 +91,6 @@ local function ApplyVisualReset(pf, button)
     if button.BannerLeft then button.BannerLeft:Hide(); button.BannerLeft:SetAlpha(0) end
     if button.BannerRight then button.BannerRight:Hide(); button.BannerRight:SetAlpha(0) end
     if button.VoidGlow then button.VoidGlow:Hide(); button.VoidGlow:SetAlpha(0) end
-
-    if button.BannerPlate then button.BannerPlate:Hide() end
-    if button.BannerTop then button.BannerTop:Hide() end
-    if button.BannerBottom then button.BannerBottom:Hide() end
 end
 
 local function ApplyStyle(force)
@@ -122,7 +105,6 @@ local function ApplyStyle(force)
     button:ClearAllPoints()
     button:SetPoint("TOPLEFT", pf, "TOPLEFT", 0, 0)
     button:SetPoint("BOTTOMRIGHT", pf, "BOTTOMRIGHT", 0, 0)
-
     ApplyVisualReset(pf, button)
 
     if force or lastStyle ~= style then
@@ -130,36 +112,12 @@ local function ApplyStyle(force)
 
         button.PanicArt:SetTexture(spec.texture)
         button.PanicArt:ClearAllPoints()
+        button.PanicArt:SetPoint("CENTER", button, "CENTER", 0, 0)
+        button.PanicArt:SetSize(spec.artW, spec.artH)
 
         button.PanicPulse:SetTexture(spec.texture)
         button.PanicPulse:ClearAllPoints()
-
-        if style == "banner" then
-            button.BannerPlate:ClearAllPoints()
-            button.BannerPlate:SetPoint("LEFT", button, "LEFT", 34, 0)
-            button.BannerPlate:SetSize(220, 54)
-            button.BannerPlate:Show()
-
-            button.BannerTop:ClearAllPoints()
-            button.BannerTop:SetPoint("TOPLEFT", button.BannerPlate, "TOPLEFT", 0, 0)
-            button.BannerTop:SetPoint("TOPRIGHT", button.BannerPlate, "TOPRIGHT", 0, 0)
-            button.BannerTop:SetHeight(2)
-            button.BannerTop:Show()
-
-            button.BannerBottom:ClearAllPoints()
-            button.BannerBottom:SetPoint("BOTTOMLEFT", button.BannerPlate, "BOTTOMLEFT", 0, 0)
-            button.BannerBottom:SetPoint("BOTTOMRIGHT", button.BannerPlate, "BOTTOMRIGHT", 0, 0)
-            button.BannerBottom:SetHeight(2)
-            button.BannerBottom:Show()
-
-            button.PanicArt:SetPoint("LEFT", button, "LEFT", 0, 0)
-            button.PanicPulse:SetPoint("LEFT", button, "LEFT", 0, 0)
-        else
-            button.PanicArt:SetPoint("CENTER", button, "CENTER", 0, 0)
-            button.PanicPulse:SetPoint("CENTER", button, "CENTER", 0, 0)
-        end
-
-        button.PanicArt:SetSize(spec.artW, spec.artH)
+        button.PanicPulse:SetPoint("CENTER", button, "CENTER", 0, 0)
         button.PanicPulse:SetSize(spec.artW, spec.artH)
 
         label:ClearAllPoints()
@@ -201,7 +159,6 @@ local function UpdateDisplay(force, forcedCount)
 
     local r, g, b = ThreatColor(count)
     label:SetTextColor(r, g, b, 1)
-
     button.PanicArt:SetVertexColor(1, 1, 1, 1)
     button.PanicPulse:SetVertexColor(r, g, b, 1)
 
