@@ -2861,8 +2861,23 @@ local function PrintKillPerf()
     end
 end
 
+local function IgnoreBattlegroundStats()
+    if Spy and Spy.ShouldIgnoreBattlegroundStats then
+        return Spy:ShouldIgnoreBattlegroundStats()
+    end
+    local profile = Spy and Spy.db and Spy.db.profile
+    if not (profile and profile.IgnoreBattlegroundStats) then return false end
+    local inInstance, instanceType = IsInInstance()
+    return inInstance == true and instanceType == "pvp"
+end
+
+function GT:ShouldIgnoreBattlegroundStats()
+    return IgnoreBattlegroundStats()
+end
+
 function GT:RecordKill(playerName, playerGUID, shouldAnnounce)
     if not playerName or playerName == "" then return end
+    if IgnoreBattlegroundStats() then return end
 
     -- These Feign tables are declared later in the file. RecordKill can be called
     -- by Spy before that section has initialized, so never index them unless ready.
@@ -4729,6 +4744,9 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
     end
 
     if event == "PLAYER_DEAD" then
+        if IgnoreBattlegroundStats() then
+            return
+        end
         RecordPlayerDeathTimestamp()
         local endedStreak = tonumber(GT.currentStreak) or 0
         if GT.partyAnnounce and endedStreak >= 5 then
