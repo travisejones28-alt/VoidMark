@@ -1583,6 +1583,124 @@ local function TaliaaCopyMissing(dst, src)
 	end
 end
 
+function Spy:RecoverLegacyKOS(force)
+	if not SpyDB or not SpyPerCharDB or not Spy.FactionName then return 0 end
+
+	SpyPerCharDB.KOSData = SpyPerCharDB.KOSData or {}
+	SpyPerCharDB.PlayerData = SpyPerCharDB.PlayerData or {}
+
+	SpyDB.VoidMarkKOSRecovery = SpyDB.VoidMarkKOSRecovery or {}
+	local recoveryKey = tostring(Spy.RealmName or "?") .. "|" .. tostring(Spy.FactionName or "?")
+	if not force and tonumber(SpyDB.VoidMarkKOSRecovery[recoveryKey]) and SpyDB.VoidMarkKOSRecovery[recoveryKey] >= 1 then
+		return 0
+	end
+
+	-- Preserve a forensic snapshot of every name we can still find before
+	-- changing anything. We intentionally ignore old removeKOSData tombstones:
+	-- those stale tombstones are the bug that could empty the shared KOS list.
+	SpyDB.VoidMarkKOSRecoveryBackup = SpyDB.VoidMarkKOSRecoveryBackup or {}
+	local backup = {
+		time = time(),
+		existing = {},
+		legacy = {},
+		playerFlags = {},
+	}
+	SpyDB.VoidMarkKOSRecoveryBackup[recoveryKey] = backup
+
+	local recovered = {}
+	local recoveredInfo = {}
+
+	local function Remember(name, added, info, source)
+		if type(name) ~= "string" or name == "" then return end
+		local stamp = tonumber(added) or (type(info) == "table" and tonumber(info.added)) or time()
+		local current = recovered[name]
+		if current == nil or stamp > current then
+			recovered[name] = stamp
+		end
+		if type(info) == "table" then
+			recoveredInfo[name] = recoveredInfo[name] or info
+		end
+		if source then
+			backup[source][name] = stamp
+		end
+	end
+
+	-- Source 1: anything that survived in the authoritative shared list.
+	for name, added in pairs(SpyPerCharDB.KOSData) do
+		Remember(name, added, SpyPerCharDB.PlayerData[name], "existing")
+	end
+
+	-- Source 2: PlayerData.kos flags sometimes survive after KOSData was removed.
+	for name, info in pairs(SpyPerCharDB.PlayerData) do
+		if type(info) == "table" and info.kos == 1 then
+			Remember(name, info.time, info, "playerFlags")
+		end
+	end
+
+	-- Source 3: old Spy per-character central KOS mirrors. Union every character
+	-- on the current faction across realms that canonicalize to this cluster.
+	if type(SpyDB.kosData) == "table" then
+		for realm, realmData in pairs(SpyDB.kosData) do
+			if TaliaaCanonicalRealm(realm) == Spy.RealmName and type(realmData) == "table" then
+				local factionData = realmData[Spy.FactionName]
+				if type(factionData) == "table" then
+					for _, characterData in pairs(factionData) do
+						if type(characterData) == "table" then
+							for name, info in pairs(characterData) do
+								if type(info) == "table" then
+									Remember(name, info.added, info, "legacy")
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	local before = 0
+	for _ in pairs(SpyPerCharDB.KOSData) do before = before + 1 end
+
+	for name, added in pairs(recovered) do
+		SpyPerCharDB.KOSData[name] = added
+		local dst = SpyPerCharDB.PlayerData[name]
+		local src = recoveredInfo[name]
+		if type(dst) ~= "table" then
+			dst = {}
+			SpyPerCharDB.PlayerData[name] = dst
+		end
+		if type(src) == "table" and src ~= dst then
+			TaliaaCopyMissing(dst, src)
+		end
+		dst.name = dst.name or name
+		dst.kos = 1
+	end
+
+	-- Retire destructive tombstones for this faction/cluster.
+	if type(SpyDB.removeKOSData) == "table" then
+		for realm, realmData in pairs(SpyDB.removeKOSData) do
+			if TaliaaCanonicalRealm(realm) == Spy.RealmName and type(realmData) == "table" then
+				realmData[Spy.FactionName] = {}
+			end
+		end
+	end
+
+	SpyDB.VoidMarkKOSRecovery[recoveryKey] = 1
+
+	local after = 0
+	for _ in pairs(SpyPerCharDB.KOSData) do after = after + 1 end
+	local restored = math.max(0, after - before)
+
+	if DEFAULT_CHAT_FRAME then
+		DEFAULT_CHAT_FRAME:AddMessage(string.format(
+			"|cffb86cff[VoidMark]|r KOS recovery: %d total, %d restored from surviving legacy data.",
+			after, restored
+		))
+	end
+
+	return restored
+end
+
 function Spy:MigrateClusterRealmData()
 	if not SpyDB or not Spy.ActualRealmName or Spy.ActualRealmName == Spy.RealmName then return end
 
@@ -1645,6 +1763,10 @@ function Spy:SanitizeStage1Profile()
 	-- longer user-configurable and cannot be re-enabled by an old profile.
 	profile.PurgeData = "Never"
 	profile.PurgeKoS = false
+	-- VoidMark uses SpyDB.TaliaaShared for account-wide KOS persistence.
+	-- Disable Spy's retired kosData/removeKOSData synchronization layer; stale
+	-- deletion tombstones in that layer could erase the real shared KOS list.
+	profile.ShareKOSBetweenCharacters = false
 	profile.PurgeWinLossData = false
 	profile.ShareData = false
 	profile.UseData = false
@@ -1731,12 +1853,10 @@ function Spy:OnInitialize()
 	SpyTempTooltip = CreateFrame("GameTooltip", "SpyTempTooltip", nil, "GameTooltipTemplate")
 	SpyTempTooltip:SetOwner(UIParent, "ANCHOR_NONE")
 
+	-- Recover KOS names from surviving legacy mirrors once, then use only
+	-- TaliaaShared.KOSData. Never consume removeKOSData tombstones again.
+	Spy:RecoverLegacyKOS(false)
 	Spy:RegenerateKOSGuildList()
-	if Spy.db.profile.ShareKOSBetweenCharacters then
-		Spy:RemoveLocalKOSPlayers()
-		Spy:RegenerateKOSCentralList()
-		Spy:RegenerateKOSListFromCentral()
-	end
 	Spy:PurgeUndetectedData()
 	Spy:CreateMainWindow()
 	Spy:CreateKoSButton()
