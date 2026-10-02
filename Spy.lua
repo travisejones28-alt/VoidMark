@@ -1532,6 +1532,7 @@ function Spy:OnDisable()
 	Spy:UnregisterEvent("ZONE_CHANGED_INDOORS")
 	Spy:UnregisterEvent("PLAYER_ENTERING_WORLD")
 	Spy:UnregisterEvent("UNIT_FACTION")
+	Spy:UnregisterEvent("PLAYER_FLAGS_CHANGED")
 	Spy:UnregisterEvent("PLAYER_TARGET_CHANGED")
 	Spy:UnregisterEvent("UPDATE_MOUSEOVER_UNIT")
 	Spy:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
@@ -1850,6 +1851,18 @@ function Spy:OnInitialize()
 	local acedb = LibStub:GetLibrary("AceDB-3.0")
 
 	Spy.db = acedb:New("SpyDB", Default_Profile)
+
+	-- One-time behavior migration for existing profiles. AceDB preserves old
+	-- profile values, so changing defaults alone would not make current installs
+	-- stay visible or exclude battleground stats.
+	SpyDB.VoidMarkBehaviorVersion = tonumber(SpyDB.VoidMarkBehaviorVersion) or 0
+	if SpyDB.VoidMarkBehaviorVersion < 1 then
+		Spy.db.profile.DisableWhenPVPUnflagged = false
+		Spy.db.profile.HideSpy = false
+		Spy.db.profile.IgnoreBattlegroundStats = true
+		SpyDB.VoidMarkBehaviorVersion = 1
+	end
+
 	Spy:MigrateClusterRealmData()
 	Spy:SanitizeStage1Profile()
 	Spy:CheckDatabase()
