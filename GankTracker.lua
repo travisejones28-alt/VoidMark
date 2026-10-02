@@ -2007,7 +2007,8 @@ UpdateDisplay = function()
 
     GT:RefreshVoidMarkCompact()
 
-    if UpdatePanicDisplay then
+    RestorePanicVisibility()
+    if UpdatePanicDisplay and GT.PanicFrame and GT.PanicFrame:IsShown() then
         UpdatePanicDisplay(recentThreats)
     end
 end
@@ -3916,9 +3917,18 @@ local function RestorePanicPosition()
     end
 end
 RestorePanicPosition()
-if not (SpyDB and SpyDB.VoidMarkShowPanicButton == true) then
-    panicFrame:Hide()
+
+local function RestorePanicVisibility()
+    if not GT.PanicFrame then return end
+    local enabled = SpyDB and SpyDB.VoidMarkShowPanicButton == true
+    if enabled then
+        if not GT.PanicFrame:IsShown() then GT.PanicFrame:Show() end
+    else
+        if GT.PanicFrame:IsShown() then GT.PanicFrame:Hide() end
+    end
 end
+
+RestorePanicVisibility()
 
 local function StartPanicDrag()
     GT._panicDragging = true
@@ -4450,11 +4460,18 @@ end
 combatMonitor:SetScript("OnEvent", function(_, event, ...)
     if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
         combatPlayerGUID = UnitGUID("player") or combatPlayerGUID
+        C_Timer.After(0, function()
+            RestorePanicVisibility()
+            if UpdatePanicDisplay and GT.PanicFrame and GT.PanicFrame:IsShown() then
+                UpdatePanicDisplay()
+            end
+        end)
         if event == "PLAYER_ENTERING_WORLD" then return end
         RefreshSessionDHK()
         C_Timer.After(2, function()
             ReconcileCurrentCharacterDHKs(false)
             UpdateDisplay()
+            RestorePanicVisibility()
         end)
         return
     end
@@ -4472,6 +4489,7 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
         GT._dhkRefreshPending = nil
         ReconcileCurrentCharacterDHKs(true)
         UpdateDisplay()
+        RestorePanicVisibility()
         return
     end
 
