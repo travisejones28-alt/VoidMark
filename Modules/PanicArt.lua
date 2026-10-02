@@ -4,7 +4,7 @@ local GT = TaliaaGankTracker
 
 local STYLE_SPEC = {
     skull = {
-        texture = ROOT .. "panic_voidskull.tga",
+        texture = ROOT .. "panic_voidskull.blp",
         frameW = 128, frameH = 128,
         artW = 128, artH = 128,
         text = "stack",
@@ -13,7 +13,7 @@ local STYLE_SPEC = {
         fontSize = 15,
     },
     diamond = {
-        texture = ROOT .. "panic_diamond.tga",
+        texture = ROOT .. "panic_diamond.blp",
         frameW = 126, frameH = 126,
         artW = 126, artH = 126,
         text = "stack",
@@ -22,7 +22,7 @@ local STYLE_SPEC = {
         fontSize = 15,
     },
     ring = {
-        texture = ROOT .. "panic_ring.tga",
+        texture = ROOT .. "panic_ring.blp",
         frameW = 126, frameH = 126,
         artW = 126, artH = 126,
         text = "stack",
@@ -31,7 +31,7 @@ local STYLE_SPEC = {
         fontSize = 15,
     },
     banner = {
-        texture = ROOT .. "panic_banner.tga",
+        texture = ROOT .. "panic_banner.blp",
         frameW = 260, frameH = 130,
         artW = 260, artH = 130,
         text = "banner",
