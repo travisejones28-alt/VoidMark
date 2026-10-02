@@ -2048,7 +2048,8 @@ UpdatePanicDisplay = function(forcedCount)
     end
     count = tonumber(count) or 0
 
-    local style = (SpyDB and SpyDB.VoidMarkPanicStyle) or "skull"
+    local style = (SpyDB and SpyDB.VoidMarkPanicStyle) or "ring"
+    if style ~= "banner" then style = "ring" end
     if style == "banner" then
         label:SetText("PANIC   " .. tostring(count) .. " THREAT" .. (count == 1 and "" or "S"))
     elseif style == "ring" then
@@ -3655,7 +3656,7 @@ panicStyleDropdown:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 78, -142)
 UIDropDownMenu_SetWidth(panicStyleDropdown, 88)
 
 local PANIC_STYLE_NAMES = {
-    ring = "Ring",
+    ring = "Circle",
     banner = "Banner",
 }
 
@@ -4002,7 +4003,7 @@ panicFrame.Button:SetScript("OnEnter", function(self)
     GameTooltip:AddLine("Click: send a PANIC call with relevant nearby enemy levels and your coordinates.", 0.88, 0.88, 0.92, true)
     GameTooltip:AddLine("Drag: move this button.", 0.68, 0.62, 0.72)
     local style = GetPanicStyle()
-    GameTooltip:AddLine("Style: " .. tostring(PANIC_STYLE_NAMES[style] or "Ring"), 0.58, 0.48, 0.68)
+    GameTooltip:AddLine("Style: " .. tostring(PANIC_STYLE_NAMES[style] or "Circle"), 0.58, 0.48, 0.68)
     GameTooltip:Show()
 end)
 panicFrame.Button:SetScript("OnLeave", function(self)
@@ -4881,7 +4882,7 @@ SlashCmdList["TALIAAGANK"] = function(msg)
             if RefreshPanicStyle then RefreshPanicStyle() end
             Print("Panic style: " .. PANIC_STYLE_NAMES[want])
         else
-            Print("Panic styles: ring, banner")
+            Print("Panic styles: circle(ring), banner")
         end
     elseif cmd == "panic" then
         GT:Panic()
