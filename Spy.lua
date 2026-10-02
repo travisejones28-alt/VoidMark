@@ -137,20 +137,6 @@ Spy.options = {
 						Spy:ZoneChangedEvent()
 					end,
 				}, ]]--
-				DisableWhenPVPUnflagged = {
-					name = L["DisableWhenPVPUnflagged"],
-					desc = L["DisableWhenPVPUnflaggedDescription"],
-					type = "toggle",
-					order = 6,
-					width = "full",
-					get = function(info)
-						return Spy.db.profile.DisableWhenPVPUnflagged
-					end,
-					set = function(info, value)
-						Spy.db.profile.DisableWhenPVPUnflagged = value
-						Spy:ZoneChangedEvent()
-					end,
-				},
 				DisabledInZones = {
 					name = L["DisabledInZones"],
 					desc = L["DisabledInZonesDescription"],
@@ -282,6 +268,20 @@ Spy.options = {
 					end,
 					set = function(info, value)
 						Spy.db.profile.PrioritiseKoS = value
+					end,
+				},
+				HideWhenPVPUnflagged = {
+					name = "Hide VoidMark when not PvP flagged",
+					desc = "When enabled, the VoidMark window hides while your character is not PvP flagged. Off by default so VoidMark stays visible.",
+					type = "toggle",
+					order = 3.5,
+					width = "full",
+					get = function()
+						return Spy.db.profile.DisableWhenPVPUnflagged
+					end,
+					set = function(info, value)
+						Spy.db.profile.DisableWhenPVPUnflagged = value and true or false
+						Spy:ZoneChangedEvent()
 					end,
 				},
 				Alpha = {
@@ -835,11 +835,24 @@ Spy.options = {
 					order = 1,
 					fontSize = "medium",
 				},
+				IgnoreBattlegroundStats = {
+					name = "Ignore battleground PvP for stats",
+					desc = "When enabled, battleground kills and deaths are not written to VoidMark kill/death history, W/L records, session K/D, streaks, or fight records. Enemy detection still works in battlegrounds.",
+					type = "toggle",
+					order = 2,
+					width = "full",
+					get = function()
+						return Spy.db.profile.IgnoreBattlegroundStats
+					end,
+					set = function(info, value)
+						Spy.db.profile.IgnoreBattlegroundStats = value and true or false
+					end,
+				},
 				RemoveUndetected = {
 					name = "Nearby list timeout",
 					desc = "How long an enemy stays in the live Nearby list after activity stops. This only clears the live list; it never deletes the player's saved history.",
 					type = "select",
-					order = 2,
+					order = 3,
 					values = {
 						OneMinute = "1 minute",
 						TwoMinutes = "2 minutes",
@@ -859,7 +872,7 @@ Spy.options = {
 				permanent = {
 					name = "Saved enemy history: |cff66ff66PERMANENT|r\nKOS sharing between your own characters: |cff66ff66ON|r\nMap/minimap enemy overlays: |cffff6666OFF|r\nOther Spy/VoidMark user data sharing: |cffff6666OFF|r",
 					type = "description",
-					order = 3,
+					order = 4,
 				},
 			},
 		},
@@ -1099,7 +1112,8 @@ local Default_Profile = {
 		EnabledInSanctuaries=false,
 		EnabledInArenas=true,
 		EnabledInWintergrasp=true,
-		DisableWhenPVPUnflagged=true,
+		DisableWhenPVPUnflagged=false,
+		IgnoreBattlegroundStats=true,
 		MinimapDetection=false,
 		MinimapDetails=false,
 		DisplayOnMap=false,
@@ -1308,6 +1322,7 @@ function Spy:CheckDatabase()
 	if Spy.db.profile.EnabledInArenas == nil then Spy.db.profile.EnabledInArenas = Default_Profile.profile.EnabledInArenas end
 	if Spy.db.profile.EnabledInWintergrasp == nil then Spy.db.profile.EnabledInWintergrasp = Default_Profile.profile.EnabledInWintergrasp end
 	if Spy.db.profile.DisableWhenPVPUnflagged == nil then Spy.db.profile.DisableWhenPVPUnflagged = Default_Profile.profile.DisableWhenPVPUnflagged end
+	if Spy.db.profile.IgnoreBattlegroundStats == nil then Spy.db.profile.IgnoreBattlegroundStats = Default_Profile.profile.IgnoreBattlegroundStats end
 	if Spy.db.profile.MinimapDetection == nil then Spy.db.profile.MinimapDetection = Default_Profile.profile.MinimapDetection end
 	if Spy.db.profile.MinimapDetails == nil then Spy.db.profile.MinimapDetails = Default_Profile.profile.MinimapDetails end
 	if Spy.db.profile.DisplayOnMap == nil then Spy.db.profile.DisplayOnMap = Default_Profile.profile.DisplayOnMap end
@@ -1338,6 +1353,16 @@ function Spy:CheckDatabase()
 	if Spy.db.profile.StopAlertsOnTaxi == nil then Spy.db.profile.StopAlertsOnTaxi = Default_Profile.profile.StopAlertsOnTaxi end 	
 	if Spy.db.profile.RemoveUndetected == nil then Spy.db.profile.RemoveUndetected = Default_Profile.profile.RemoveUndetected end
 	if Spy.db.profile.ShowNearbyList == nil then Spy.db.profile.ShowNearbyList = Default_Profile.profile.ShowNearbyList end
+
+	-- VoidMark behavior migration: as of 2026-10-02 the window stays visible
+	-- when unflagged by default, and battleground combat is excluded from stats.
+	SpyDB.VoidMarkBehaviorVersion = tonumber(SpyDB.VoidMarkBehaviorVersion) or 0
+	if SpyDB.VoidMarkBehaviorVersion < 1 then
+		Spy.db.profile.DisableWhenPVPUnflagged = false
+		Spy.db.profile.HideSpy = false
+		Spy.db.profile.IgnoreBattlegroundStats = true
+		SpyDB.VoidMarkBehaviorVersion = 1
+	end
 	if Spy.db.profile.PrioritiseKoS == nil then Spy.db.profile.PrioritiseKoS = Default_Profile.profile.PrioritiseKoS end
 	if Spy.db.profile.PurgeData == nil then Spy.db.profile.PurgeData = Default_Profile.profile.PurgeData end
 	if Spy.db.profile.PurgeKoS == nil then Spy.db.profile.PurgeKoS = Default_Profile.profile.PurgeKoSData end	
@@ -1478,6 +1503,7 @@ function Spy:OnEnable(first)
 --	Spy:RegisterEvent("PLAYER_ENTERING_WORLD", "ZoneChangedEvent")
 	Spy:RegisterEvent("PLAYER_ENTERING_WORLD", "PlayerEnteringWorldEvent")
 	Spy:RegisterEvent("UNIT_FACTION", "ZoneChangedEvent")
+	Spy:RegisterEvent("PLAYER_FLAGS_CHANGED", "ZoneChangedEvent")
 	Spy:RegisterEvent("PLAYER_TARGET_CHANGED", "PlayerTargetEvent")
 	Spy:RegisterEvent("UPDATE_MOUSEOVER_UNIT", "PlayerMouseoverEvent")
 	Spy:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", "CombatLogEvent")
@@ -1906,6 +1932,14 @@ function Spy:ZoneChangedNewAreaEvent()
 	end
 end
 
+function Spy:ShouldIgnoreBattlegroundStats()
+	if not (Spy.db and Spy.db.profile and Spy.db.profile.IgnoreBattlegroundStats) then
+		return false
+	end
+	local inInstance, instanceType = IsInInstance()
+	return inInstance == true and instanceType == "pvp"
+end
+
 function Spy:ZoneChanged()
 	Spy.InInstance = false
 	local pvpType = GetZonePVPInfo()
@@ -2272,6 +2306,11 @@ end
 function Spy:FinishThreatFight(player, result)
 	local fight = Spy.ThreatCombat[player]
 	if not fight then
+		return
+	end
+
+	if Spy:ShouldIgnoreBattlegroundStats() then
+		Spy.ThreatCombat[player] = nil
 		return
 	end
 
@@ -2819,6 +2858,11 @@ function Spy:LeftCombatEvent()
 end
 
 function Spy:PlayerDeadEvent()
+	if Spy:ShouldIgnoreBattlegroundStats() then
+		-- Drop any active fight state without writing BG losses/fight records.
+		Spy.ThreatCombat = {}
+		return
+	end
 	-- Taliaa Spy: use the most recent hostile-player damage within 10 seconds
 	-- as the loss owner. The old Spy path required the final hostile event to land
 	-- within 0.5s of PLAYER_DEAD, which missed many normal PvP deaths and left the
