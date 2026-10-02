@@ -1,3 +1,4 @@
+-- Final Circle/Banner art repush: 2026-10-02
 local FONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 local ROOT = "Interface\\AddOns\\VoidMark\\Media\\Panic\\"
 
