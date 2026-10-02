@@ -1757,7 +1757,6 @@ function Spy:SanitizeStage1Profile()
 	profile.PurgeWinLossData = false
 	profile.ShareData = false
 	profile.UseData = false
-	profile.ShareKOSBetweenCharacters = true
 	profile.MinimapDetection = false
 	profile.MinimapDetails = false
 	profile.DisplayOnMap = false
