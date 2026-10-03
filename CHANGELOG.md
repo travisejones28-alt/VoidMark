@@ -1,3 +1,8 @@
+## 1.2.8
+- Cleaned up Enemy Moves target/status row spacing.
+- Shortened the idle status to NO COOLDOWNS.
+- Disabled status text wrapping and tightened the target-name column.
+
 ## 1.2.7
 - Enemy Moves target display now shows only the short player name (realm removed).
 - Removed class text from the target label.
