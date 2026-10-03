@@ -139,10 +139,23 @@ local POTION_EFFECT_NAMES={
     ["Free Action"]=true,["Living Action"]=true,["Limited Invulnerability"]=true,
     ["Restoration"]=true,["Restorative Potion"]=true,
 }
+-- Protection potions commonly surface in Classic's combat log as the applied
+-- absorb aura, not as a SPELL_CAST_SUCCESS event whose name contains "Potion".
+-- Treat these item-effect aura IDs as a potion use and start the shared 2m timer.
+local POTION_EFFECT_IDS={
+    [7237]=true,[7239]=true,[17544]=true, -- Frost Protection ranks / Greater
+    [7230]=true,[17543]=true,             -- Fire Protection / Greater
+    [7241]=true,[7242]=true,[17548]=true, -- Shadow Protection ranks / Greater
+    [7254]=true,[17546]=true,             -- Nature Protection / Greater
+    [17549]=true,                         -- Arcane Protection
+}
 local POTION_DEF={key="POTION",name="Potion",cd=120,active=0,category="utility",color="gray",priority=24}
 CANON.POTION=POTION_DEF
 
-local function IsPotionUse(spellName,subevent)
+local function IsPotionUse(spellID,spellName,subevent)
+    if POTION_EFFECT_IDS[spellID] and (subevent=="SPELL_AURA_APPLIED" or subevent=="SPELL_AURA_REFRESH" or subevent=="SPELL_CAST_SUCCESS") then
+        return true
+    end
     if subevent~="SPELL_CAST_SUCCESS" or type(spellName)~="string" then return false end
     if spellName:lower():find("potion",1,true) then return true end
     return POTION_EFFECT_NAMES[spellName] and true or false
@@ -192,7 +205,7 @@ local function TrackSpell(ownerGUID,ownerName,ownerClass,spellID,spellName,event
     local def=SPELLS[spellID]
     if not def and spellName and TRINKET_NAMES[spellName] then
         def={key="PVP_TRINKET",name="PvP Trinket",cd=300,active=0,category="utility",color="gray",priority=25}
-    elseif IsPotionUse(spellName,event) then
+    elseif IsPotionUse(spellID,spellName,event) then
         def=POTION_DEF
     end
     if not def then return false end
