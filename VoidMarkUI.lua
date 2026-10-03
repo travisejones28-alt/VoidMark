@@ -244,6 +244,11 @@ local function BuildGearMenu(self, level)
             VoidMarkDamageRecords:Toggle()
         end
     end)
+    Add("Enemy Moves", function()
+        if VoidMarkEnemyMoves and VoidMarkEnemyMoves.Toggle then
+            VoidMarkEnemyMoves:Toggle()
+        end
+    end)
     Add("Taunt", function()
         if VoidMarkTaunt and VoidMarkTaunt.Toggle then VoidMarkTaunt.Toggle() end
     end)
