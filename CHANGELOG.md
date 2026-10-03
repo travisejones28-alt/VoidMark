@@ -1,3 +1,7 @@
+## 1.2.4
+- Shifted the Enemy Moves banner crop to frame the VOIDMARK wordmark itself instead of the hood artwork on the left.
+- Header now uses the wordmark as the visual center of the compact panel.
+
 ## 1.2.3
 - Enemy Moves now follows the current hostile player target by default.
 - Hovering a player in the VoidMark list temporarily overrides the panel only when that player has at least one live tracked cooldown.
