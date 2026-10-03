@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.0.1"
+local VERSION = "1.0.2"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 20, 2
 local HEADER_H, STATUS_H = 40, 22
@@ -56,12 +56,12 @@ local function AddSpell(ids,key,name,cd,active,category,color,opts)
 end
 
 -- Rogue
-AddSpell({1766},"KICK","Kick",10,0,"control","orange",{class="ROGUE",priority=10})
+AddSpell({1766,1767,1768,1769},"KICK","Kick",10,0,"control","orange",{class="ROGUE",priority=10})
 AddSpell({408,8643},"KIDNEY_SHOT","Kidney Shot",20,0,"control","orange",{class="ROGUE",priority=11})
 AddSpell({2094},"BLIND","Blind",210,0,"control","orange",{class="ROGUE",priority=12})
 AddSpell({1776,1777,8629,11285,11286},"GOUGE","Gouge",10,0,"control","orange",{class="ROGUE",priority=13})
 AddSpell({1856,1857},"VANISH","Vanish",210,0,"mobility","purple",{class="ROGUE",priority=20})
-AddSpell({5277},"EVASION","Evasion",210,15,"defensive","red",{class="ROGUE",priority=3})
+AddSpell({5277,26669},"EVASION","Evasion",210,15,"defensive","red",{class="ROGUE",priority=3})
 AddSpell({2983,8696,11305},"SPRINT","Sprint",210,15,"mobility","purple",{class="ROGUE",priority=21})
 AddSpell({14185},"PREPARATION","Preparation",600,0,"utility","blue",{class="ROGUE",priority=30,reset={"KICK","KIDNEY_SHOT","GOUGE","VANISH","BLIND","SPRINT","EVASION"}})
 
@@ -285,7 +285,12 @@ local function TrackSpell(ownerGUID,ownerName,ownerClass,spellID,spellName,event
         StartCooldown(e,def,spellID)
     elseif event=="SPELL_AURA_APPLIED" or event=="SPELL_AURA_REFRESH" then
         local s=e.spells[def.key]
-        if not s then StartCooldown(e,def,spellID) s=e.spells[def.key] end
+        -- If cast-success was not visible, an aura application still needs to
+        -- restart a cooldown once the prior observed cooldown has expired.
+        if not s or (s.cooldownEnd or 0)<=Now() then
+            StartCooldown(e,def,spellID)
+            s=e.spells[def.key]
+        end
         if def.active and def.active>0 then s.activeEnd=Now()+def.active end
     elseif event=="SPELL_AURA_REMOVED" then
         local s=e.spells[def.key]
