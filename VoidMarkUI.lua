@@ -253,6 +253,16 @@ local function BuildGearMenu(self, level)
             VoidMarkEnemyMoves:ToggleEnabled()
         end
     end)
+
+    local panicEnabled = TaliaaGankTracker
+        and TaliaaGankTracker.IsPanicEnabled
+        and TaliaaGankTracker:IsPanicEnabled()
+
+    Add(panicEnabled and "Panic: ON" or "Panic: OFF", function()
+        if TaliaaGankTracker and TaliaaGankTracker.TogglePanicEnabled then
+            TaliaaGankTracker:TogglePanicEnabled()
+        end
+    end)
     Add("Taunt", function()
         if VoidMarkTaunt and VoidMarkTaunt.Toggle then VoidMarkTaunt.Toggle() end
     end)
