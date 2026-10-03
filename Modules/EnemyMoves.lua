@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.2.5"
+local VERSION = "1.2.6"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
 local HEADER_H, STATUS_H = 63, 22
@@ -708,7 +708,25 @@ function EM:ToggleOptions()
     local f=EnsureOptions()
     if f:IsShown() then f:Hide() else f:Show() end
 end
-function EM:SetEnabled(v) DB().enabled=v and true or false EM:Refresh() end
+function EM:SetEnabled(v)
+    DB().enabled=v and true or false
+    if not DB().enabled then
+        hoverGUID=nil
+        frame:Hide()
+    else
+        UpdateTarget()
+        EM:Refresh()
+    end
+end
+
+function EM:IsEnabled()
+    return DB().enabled and true or false
+end
+
+function EM:ToggleEnabled()
+    EM:SetEnabled(not EM:IsEnabled())
+    return EM:IsEnabled()
+end
 
 local function FindEnemyByName(name,guid)
     if guid and enemies[guid] then return guid,enemies[guid] end
