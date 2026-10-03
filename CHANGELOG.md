@@ -1,3 +1,9 @@
+## 1.3.2
+- Added a personal Sap safety alert that fires only when Sap lands on the player.
+- Alert is on-screen only with a raid-warning sound; no chat message is sent.
+- Added Sap Alert: ON / OFF to the main VoidMark gear menu.
+- Sap Alert defaults to ON until explicitly disabled.
+
 ## 1.3.1
 - Panic is now fixed to the Banner/bar style.
 - Removed Panic style selection controls from Gank Tracker options.
