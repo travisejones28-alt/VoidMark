@@ -150,6 +150,14 @@ local function IsSapAlertEnabled()
     return SpyDB.VoidMarkSapAlert == true
 end
 
+local SAP_COMM_PREFIX = "VMSAP"
+
+local function SapAlertDistribution()
+    if IsInRaid and IsInRaid() then return "RAID" end
+    if IsInGroup and IsInGroup() then return "PARTY" end
+    return nil
+end
+
 local function ShowSapAlert(sourceName)
     if not IsSapAlertEnabled() then return end
     local now = GetTime()
@@ -157,26 +165,37 @@ local function ShowSapAlert(sourceName)
     lastSapAlertAt = now
 
     local shortName = sourceName and tostring(sourceName):match("^([^%-]+)")
-    local personalMsg = shortName and ("SAPPED  •  "..shortName) or "SAPPED"
     local groupMsg = shortName and ("{rt8} SAPPED BY "..shortName.." {rt8}") or "{rt8} SAPPED {rt8}"
+    local distribution = SapAlertDistribution()
 
-    -- Personal visual warning only; no audio alert.
-    if RaidNotice_AddMessage and RaidWarningFrame then
-        RaidNotice_AddMessage(RaidWarningFrame, personalMsg, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or {r=1,g=0.2,b=0.2})
-    elseif UIErrorsFrame and UIErrorsFrame.AddMessage then
-        UIErrorsFrame:AddMessage(personalMsg, 1.0, 0.18, 0.22, 1.0)
+    -- The Sapped player does not get VoidMark's large local warning or sound.
+    -- Party/Raid chat still gets the human-readable callout.
+    if distribution and SendChatMessage then
+        SendChatMessage(groupMsg, distribution)
     end
 
-    -- Group safety callout: raid takes priority over party.
-    if SendChatMessage then
-        if IsInRaid and IsInRaid() then
-            SendChatMessage(groupMsg, "RAID")
-        elseif IsInGroup and IsInGroup() then
-            SendChatMessage(groupMsg, "PARTY")
-        end
+    -- Separately notify other VoidMark users so their clients can produce the
+    -- stronger visual/audio reaction without creating another chat message.
+    if distribution and C_ChatInfo and C_ChatInfo.SendAddonMessage then
+        local myName = UnitName("player") or "PARTY MEMBER"
+        C_ChatInfo.SendAddonMessage(SAP_COMM_PREFIX, "SAPPED|"..myName, distribution)
     end
 end
 
+local function ShowRemoteSapAlert(playerName)
+    local shortName = playerName and tostring(playerName):match("^([^%-]+)") or "PARTY MEMBER"
+    local msg = "SAPPED  •  "..shortName
+
+    if RaidNotice_AddMessage and RaidWarningFrame then
+        RaidNotice_AddMessage(RaidWarningFrame, msg, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or {r=1,g=0.2,b=0.2})
+    elseif UIErrorsFrame and UIErrorsFrame.AddMessage then
+        UIErrorsFrame:AddMessage(msg, 1.0, 0.18, 0.22, 1.0)
+    end
+
+    if PlaySound and SOUNDKIT and SOUNDKIT.RAID_WARNING then
+        PlaySound(SOUNDKIT.RAID_WARNING, "Master")
+    end
+end
 function GT:IsSapAlertEnabled()
     return IsSapAlertEnabled()
 end
@@ -189,6 +208,26 @@ function GT:ToggleSapAlertEnabled()
     self:SetSapAlertEnabled(not self:IsSapAlertEnabled())
     return self:IsSapAlertEnabled()
 end
+
+local sapCommFrame = CreateFrame("Frame")
+if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then
+    C_ChatInfo.RegisterAddonMessagePrefix(SAP_COMM_PREFIX)
+end
+sapCommFrame:RegisterEvent("CHAT_MSG_ADDON")
+sapCommFrame:SetScript("OnEvent", function(_, _, prefix, message, channel, sender)
+    if prefix ~= SAP_COMM_PREFIX or not IsSapAlertEnabled() then return end
+    if type(message) ~= "string" then return end
+
+    local kind, playerName = message:match("^([^|]+)|?(.*)$")
+    if kind ~= "SAPPED" then return end
+
+    local myName, myRealm = UnitFullName and UnitFullName("player")
+    local fullSelf = myName
+    if myName and myRealm and myRealm ~= "" then fullSelf = myName.."-"..myRealm end
+    if sender and fullSelf and sender == fullSelf then return end
+
+    ShowRemoteSapAlert(playerName ~= "" and playerName or sender)
+end)
 
 local function PanicPlayerLevel()
     local level = UnitLevel and tonumber(UnitLevel("player")) or nil
