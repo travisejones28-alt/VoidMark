@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.0.5"
+local VERSION = "1.0.6"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 20, 2
 local HEADER_H, STATUS_H = 40, 22
@@ -394,11 +394,11 @@ local function CurrentEnemy()
 end
 local function Remaining(s,def,now)
     -- Enemy Moves answers "when can they use it again?".
-    -- Keep ACTIVE as a separate state marker, but always display the recast
-    -- cooldown rather than replacing it with the remaining buff duration.
+    -- ACTIVE is a separate state with its own remaining duration.
     local active=s.activeEnd and s.activeEnd>now
+    local activeRemain=active and math.max(0,s.activeEnd-now) or 0
     local cooldownRemain=math.max(0,(s.cooldownEnd or 0)-now)
-    return cooldownRemain,active
+    return cooldownRemain,active,activeRemain
 end
 local function BuildRows(e,now)
     local list={}
@@ -407,8 +407,16 @@ local function BuildRows(e,now)
             local def=CANON[key]
             if not def and key=="PVP_TRINKET" then def={key=key,name="PvP Trinket",cd=300,active=0,category="utility",color="gray",priority=25} end
             if def then
-                local remain,active=Remaining(s,def,now)
-                if remain>0 then list[#list+1]={state=s,def=def,remain=remain,active=active} end
+                local remain,active,activeRemain=Remaining(s,def,now)
+                if remain>0 then
+                    list[#list+1]={
+                        state=s,
+                        def=def,
+                        remain=remain,
+                        active=active,
+                        activeRemain=activeRemain,
+                    }
+                end
             end
         end
     end
@@ -472,7 +480,11 @@ function EM:Refresh()
                 if tex then row.Icon:SetTexture(tex) else row.Icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark") end
             elseif def.key=="POTION" then row.Icon:SetTexture("Interface\\Icons\\INV_Potion_54")
             else row.Icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark") end
-            row.Label:SetText(def.name..(item.active and " |cffff4d5dACTIVE|r" or ""))
+            if item.active then
+                row.Label:SetText(string.format("%s |cffff4d5dACTIVE|r |cffffa64d(%s)|r",def.name,ShortTime(item.activeRemain or 0)))
+            else
+                row.Label:SetText(def.name)
+            end
             row.Time:SetText(ShortTime(item.remain)) SetColor(row.Time,item.active and C.red or c)
             row:Show()
         else row:Hide() end
