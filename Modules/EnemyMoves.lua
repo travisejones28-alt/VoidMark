@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.0.7"
+local VERSION = "1.0.8"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 20, 2
 local HEADER_H, STATUS_H = 40, 22
@@ -462,6 +462,15 @@ function EM:Refresh()
     local e=CurrentEnemy()
     if not e then frame:Hide() return end
 
+    -- A pinned enemy may survive target loss/Vanish, but only while VoidMark
+    -- itself still considers that player part of the nearby tracker.
+    if not hoverGUID and pinnedGUID and e.guid==pinnedGUID and not IsStillTrackedByVoidMark(e) then
+        if targetGUID==pinnedGUID then targetGUID=nil end
+        pinnedGUID=nil
+        frame:Hide()
+        return
+    end
+
     local cc=RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
     if cc then frame.Target:SetText(string.format("%s  •  |cff%02x%02x%02x%s|r",e.name or "Unknown",cc.r*255,cc.g*255,cc.b*255,e.class or ""))
     else frame.Target:SetText((e.name or "Unknown").."  •  "..tostring(e.class or "")) end
@@ -572,6 +581,18 @@ local function FindEnemyByName(name,guid)
         if en==name or es==short then return g,e end
     end
     return nil,nil
+end
+
+local function IsStillTrackedByVoidMark(e)
+    if not e or not e.name then return false end
+    if not Spy or type(Spy.NearbyList)~="table" then return true end
+    if Spy.NearbyList[e.name] then return true end
+    local short=tostring(e.name):match("^([^%-]+)") or tostring(e.name)
+    for name in pairs(Spy.NearbyList) do
+        local nshort=tostring(name):match("^([^%-]+)") or tostring(name)
+        if nshort==short then return true end
+    end
+    return false
 end
 
 function EM:HoverPlayer(name,guid)
