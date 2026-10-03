@@ -1,3 +1,9 @@
+## 1.3.1
+- Panic is now fixed to the Banner/bar style.
+- Removed Panic style selection controls from Gank Tracker options.
+- Panic enable/disable remains on the main VoidMark gear menu.
+- Preserved the 60-second grace period and Nearby-list auto-show/hide behavior.
+
 ## 1.3.0
 - Removed the SHOW PANIC checkbox from Gank Tracker options.
 - Added Panic: ON / OFF to the main VoidMark gear menu.
