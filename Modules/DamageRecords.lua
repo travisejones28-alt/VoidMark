@@ -3,21 +3,83 @@
 VoidMarkDamageRecords = VoidMarkDamageRecords or {}
 local DR = VoidMarkDamageRecords
 
+local function CurrentCharacter()
+    local name = tostring(UnitName and UnitName("player") or "?")
+    local realm = tostring(GetRealmName and GetRealmName() or "?")
+    return name, realm, name .. "-" .. realm
+end
+
 local function DB()
     SpyDB = SpyDB or {}
     SpyDB.VoidMarkDamageRecords = SpyDB.VoidMarkDamageRecords or {
-        version = 1,
+        version = 2,
         partyAnnounce = true,
-        records = {},
+        characters = {},
     }
     local db = SpyDB.VoidMarkDamageRecords
+
     -- Migrate the temporary YELL-era setting once, then use only Party.
     if db.partyAnnounce == nil then
         db.partyAnnounce = true
     end
     db.yellAnnounce = nil
-    db.records = db.records or {}
+    db.characters = db.characters or {}
+
+    -- v1 stored every character in one shared records table. Split the records
+    -- we can identify by the character/realm snapshot already stored on them.
+    if (tonumber(db.version) or 1) < 2 then
+        local function BucketFor(record)
+            local name = type(record) == "table" and tostring(record.character or "") or ""
+            local realm = type(record) == "table" and tostring(record.realm or "") or ""
+            if name == "" or name == "?" then
+                name, realm = CurrentCharacter()
+            elseif realm == "" or realm == "?" then
+                local _, currentRealm = CurrentCharacter()
+                realm = currentRealm
+            end
+            local key = name .. "-" .. realm
+            db.characters[key] = db.characters[key] or { records = {} }
+            db.characters[key].records = db.characters[key].records or {}
+            return db.characters[key]
+        end
+
+        for key, record in pairs(db.records or {}) do
+            if type(record) == "table" then
+                local bucket = BucketFor(record)
+                local old = bucket.records[key]
+                if not old or (tonumber(old.amount) or 0) < (tonumber(record.amount) or 0) then
+                    bucket.records[key] = record
+                end
+                if not bucket.overall or (tonumber(bucket.overall.amount) or 0) < (tonumber(record.amount) or 0) then
+                    bucket.overall = {}
+                    for k, v in pairs(record) do bucket.overall[k] = v end
+                end
+            end
+        end
+
+        if type(db.overall) == "table" then
+            local bucket = BucketFor(db.overall)
+            if not bucket.overall or (tonumber(bucket.overall.amount) or 0) < (tonumber(db.overall.amount) or 0) then
+                bucket.overall = {}
+                for k, v in pairs(db.overall) do bucket.overall[k] = v end
+            end
+        end
+
+        db.records = nil
+        db.overall = nil
+        db.version = 2
+    end
+
     return db
+end
+
+local function CharacterDB()
+    local db = DB()
+    local _, _, key = CurrentCharacter()
+    db.characters[key] = db.characters[key] or { records = {} }
+    local cdb = db.characters[key]
+    cdb.records = cdb.records or {}
+    return cdb
 end
 
 local function PlayerGUID()
@@ -129,8 +191,9 @@ local function SaveRecord(kind, spellID, spellName, amount, critical, destGUID, 
     if amount <= 0 then return end
 
     local db = DB()
+    local cdb = CharacterDB()
     local key = RecordKey(kind, spellID, spellName)
-    local old = db.records[key]
+    local old = cdb.records[key]
     if old and (tonumber(old.amount) or 0) >= amount then return end
 
     local zone, sub = Location()
@@ -157,12 +220,12 @@ local function SaveRecord(kind, spellID, spellName, amount, critical, destGUID, 
         character = tostring(UnitName("player") or "?"),
         realm = tostring(GetRealmName and GetRealmName() or "?"),
     }
-    db.records[key] = record
-    local isOverallRecord = not db.overall or (tonumber(db.overall.amount) or 0) < amount
+    cdb.records[key] = record
+    local isOverallRecord = not cdb.overall or (tonumber(cdb.overall.amount) or 0) < amount
     if isOverallRecord then
         -- Store a snapshot, not an alias to a per-ability table.
-        db.overall = {}
-        for k, v in pairs(record) do db.overall[k] = v end
+        cdb.overall = {}
+        for k, v in pairs(record) do cdb.overall[k] = v end
     end
 
     -- Party is automatic only when the player is in a normal party.
@@ -210,7 +273,7 @@ local selectedKey = "__OVERALL"
 
 local function SortedRecords()
     local out = {}
-    for key, record in pairs(DB().records) do
+    for key, record in pairs(CharacterDB().records) do
         if type(record) == "table" then
             out[#out + 1] = { key = key, record = record }
         end
@@ -222,25 +285,30 @@ local function SortedRecords()
 end
 
 local function SelectedRecord()
-    local db = DB()
-    if selectedKey == "__OVERALL" then return db.overall end
-    return db.records[selectedKey]
+    local cdb = CharacterDB()
+    if selectedKey == "__OVERALL" then return cdb.overall end
+    return cdb.records[selectedKey]
 end
 
 function DR:Refresh()
     if not frame then return end
     local db = DB()
+    local cdb = CharacterDB()
+    local charName = CurrentCharacter()
     local r = SelectedRecord()
     frame.PartyButton.Text:SetText(db.partyAnnounce and "PARTY ANNOUNCE: ON" or "PARTY ANNOUNCE: OFF")
-    -- A previously selected spell can disappear only after manual SV editing.
-    -- Fall back cleanly instead of leaving the panel blank.
-    if selectedKey ~= "__OVERALL" and not db.records[selectedKey] then
+    if frame.CharacterLabel then
+        frame.CharacterLabel:SetText("CHARACTER: " .. tostring(charName))
+    end
+    -- A previously selected spell can disappear after changing characters or
+    -- after manual SavedVariables editing. Fall back cleanly.
+    if selectedKey ~= "__OVERALL" and not cdb.records[selectedKey] then
         selectedKey = "__OVERALL"
         if frame.Dropdown then
             UIDropDownMenu_SetSelectedValue(frame.Dropdown, selectedKey)
             UIDropDownMenu_SetText(frame.Dropdown, "Highest Damage Ever")
         end
-        r = db.overall
+        r = cdb.overall
     end
     if not r then
         frame.Icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
@@ -285,6 +353,10 @@ local function BuildUI()
 
     local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -3, -3)
+
+    frame.CharacterLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    frame.CharacterLabel:SetPoint("TOPRIGHT", close, "TOPLEFT", -4, -11)
+    frame.CharacterLabel:SetJustifyH("RIGHT")
 
     frame.Dropdown = CreateFrame("Frame", "VoidMarkDamageRecordsDropdown", frame, "UIDropDownMenuTemplate")
     frame.Dropdown:SetPoint("TOPLEFT", 2, -40)
