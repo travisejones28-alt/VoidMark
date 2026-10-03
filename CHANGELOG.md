@@ -1,3 +1,6 @@
+## 1.0.7
+- Enemy Moves active rows now show the active-effect countdown inline, e.g. Evasion ACTIVE (8s), while preserving the recast cooldown on the right.
+
 ## 1.0.6
 - Tightened Enemy Moves cooldown accuracy for talented Frost Nova, Earth Shock, and Lay on Hands.
 - Grounding Totem now tracks only its recast timer instead of implying the totem is still active.
