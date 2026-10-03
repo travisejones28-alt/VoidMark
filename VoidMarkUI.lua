@@ -244,9 +244,13 @@ local function BuildGearMenu(self, level)
             VoidMarkDamageRecords:Toggle()
         end
     end)
-    Add("Enemy Moves", function()
-        if VoidMarkEnemyMoves and VoidMarkEnemyMoves.Toggle then
-            VoidMarkEnemyMoves:Toggle()
+    local enemyMovesEnabled = VoidMarkEnemyMoves
+        and VoidMarkEnemyMoves.IsEnabled
+        and VoidMarkEnemyMoves:IsEnabled()
+
+    Add(enemyMovesEnabled and "Enemy Moves: ON" or "Enemy Moves: OFF", function()
+        if VoidMarkEnemyMoves and VoidMarkEnemyMoves.ToggleEnabled then
+            VoidMarkEnemyMoves:ToggleEnabled()
         end
     end)
     Add("Taunt", function()
