@@ -22,7 +22,12 @@ local targetGUID, frame, options, ticker
 local testMode, testGUID = false, "VOIDMARK-ENEMYMOVES-TEST"
 
 local function Now() return GetTime() end
-local function Clamp(v,lo,hi) v=tonumber(v) or lo if v<lo then return lo elseif v>hi then return hi end return v end
+local function Clamp(v,lo,hi)
+    v=tonumber(v) or lo
+    if v<lo then return lo end
+    if v>hi then return hi end
+    return v
+end
 local function SetColor(fs,c) fs:SetTextColor(c[1],c[2],c[3],c[4] or 1) end
 local function DB()
     SpyDB = SpyDB or {}
@@ -411,7 +416,8 @@ local function EnsureOptions()
     local function Slider(name,label,minv,maxv,step,y,onchange)
         local s=CreateFrame("Slider",name,options,"OptionsSliderTemplate")
         s:SetPoint("TOPLEFT",22,y) s:SetWidth(220) s:SetMinMaxValues(minv,maxv) s:SetValueStep(step) s:SetObeyStepOnDrag(true)
-        local fs=_G[name.."Text"] if fs then fs:SetText(label) end
+        local fs=_G[name.."Text"]
+        if fs then fs:SetText(label) end
         s:SetScript("OnValueChanged",onchange)
         return s
     end
@@ -461,16 +467,22 @@ eventFrame:SetScript("OnEvent",function(_,event)
         ownerGUID,ownerName,ownerClass=sourceGUID,sourceName,ClassFromGUID(sourceGUID)
     elseif petOwner[sourceGUID] then
         ownerGUID=petOwner[sourceGUID]
-        local e=enemies[ownerGUID] ownerName=e and e.name ownerClass=e and e.class
+        local e=enemies[ownerGUID]
+        ownerName=e and e.name
+        ownerClass=e and e.class
     elseif targetGUID and sourceGUID==targetGUID then
         ownerGUID=sourceGUID
-        local n,r=UnitName("target") if n and r and r~="" then n=n.."-"..r end
-        ownerName=n or sourceName ownerClass=select(2,UnitClass("target")) or ClassFromGUID(sourceGUID)
+        local n,r=UnitName("target")
+        if n and r and r~="" then n=n.."-"..r end
+        ownerName=n or sourceName
+        ownerClass=select(2,UnitClass("target")) or ClassFromGUID(sourceGUID)
     elseif targetGUID and destGUID==targetGUID and SPELLS[spellID] then
         -- Defensive aura fallback for current target; catches bubble/BOP when source flags are odd.
         ownerGUID=destGUID
-        local n,r=UnitName("target") if n and r and r~="" then n=n.."-"..r end
-        ownerName=n or destName ownerClass=select(2,UnitClass("target")) or ClassFromGUID(destGUID)
+        local n,r=UnitName("target")
+        if n and r and r~="" then n=n.."-"..r end
+        ownerName=n or destName
+        ownerClass=select(2,UnitClass("target")) or ClassFromGUID(destGUID)
     else return end
 
     local def=SPELLS[spellID]
@@ -480,17 +492,30 @@ eventFrame:SetScript("OnEvent",function(_,event)
     if ownerGUID==targetGUID or testMode then EM:Refresh() end
 end)
 
-ticker=C_Timer.NewTicker(0.10,function() if frame and frame:IsShown() then EM:Refresh() end LearnTargetPet() end)
+ticker=C_Timer.NewTicker(0.10,function()
+    if frame and frame:IsShown() then EM:Refresh() end
+    LearnTargetPet()
+end)
 
 local function TestStart()
-    BuildUI() testMode=true
-    local e=GetEnemy(testGUID,"Cartach","ROGUE") e.spells={} e.seen={}
+    BuildUI()
+    testMode=true
+    local e=GetEnemy(testGUID,"Cartach","ROGUE")
+    e.spells={}
+    e.seen={}
     local function fake(key,remain,id)
-        local d=CANON[key] local s={key=key,name=d.name,usedAt=Now()-2,cooldownEnd=Now()+remain,lastSpellID=id}
-        e.spells[key]=s e.seen[key]=true
+        local d=CANON[key]
+        local s={key=key,name=d.name,usedAt=Now()-2,cooldownEnd=Now()+remain,lastSpellID=id}
+        e.spells[key]=s
+        e.seen[key]=true
     end
-    fake("BLIND",282,2094) fake("VANISH",197,1856) fake("KIDNEY_SHOT",14,408) fake("KICK",7.2,1766)
-    fake("EVASION",171,5277) fake("SPRINT",46,2983) fake("POTION",83,nil)
+    fake("BLIND",282,2094)
+    fake("VANISH",197,1856)
+    fake("KIDNEY_SHOT",14,408)
+    fake("KICK",7.2,1766)
+    fake("EVASION",171,5277)
+    fake("SPRINT",46,2983)
+    fake("POTION",83,nil)
     EM:Refresh()
 end
 
@@ -500,13 +525,24 @@ SlashCmdList.VOIDMARKENEMYMOVES=function(msg)
     msg=string.lower(strtrim(msg or ""))
     if msg=="test" then TestStart()
     elseif msg=="options" or msg=="opt" then EM:ToggleOptions()
-    elseif msg=="show" then DB().enabled=true UpdateTarget() EM:Refresh()
-    elseif msg=="hide" then DB().enabled=false if frame then frame:Hide() end
+    elseif msg=="show" then
+        DB().enabled=true
+        UpdateTarget()
+        EM:Refresh()
+    elseif msg=="hide" then
+        DB().enabled=false
+        if frame then frame:Hide() end
     elseif msg=="lock" then DB().locked=true
     elseif msg=="unlock" then DB().locked=false
-    elseif msg=="debug" then DB().debug=not DB().debug DEFAULT_CHAT_FRAME:AddMessage("|cffb45cff[EnemyMoves]|r debug "..(DB().debug and "ON" or "OFF"))
+    elseif msg=="debug" then
+        DB().debug=not DB().debug
+        DEFAULT_CHAT_FRAME:AddMessage("|cffb45cff[EnemyMoves]|r debug "..(DB().debug and "ON" or "OFF"))
     elseif msg=="reset" then
-        local db=DB() db.point=nil db.relPoint=nil db.x=nil db.y=nil
+        local db=DB()
+        db.point=nil
+        db.relPoint=nil
+        db.x=nil
+        db.y=nil
         if frame then RestorePosition() frame:Show() end
     else
         DEFAULT_CHAT_FRAME:AddMessage("|cffb45cffEnemy Moves|r: /emoves test | show | hide | options | lock | unlock | debug | reset")
