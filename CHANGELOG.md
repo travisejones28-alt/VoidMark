@@ -1,3 +1,10 @@
+## 1.2.0
+- Reworked Enemy Moves to match the user-provided compact VoidMark logo crop.
+- Banner now uses a centered horizontal crop while preserving the full vertical artwork and correct logo/tagline proportions.
+- Target/class moved into the existing status strip so the header remains clean with no extra spacer bar.
+- Status text is right-aligned alongside the target/class label.
+- Fixed target/status anchor creation order before release.
+
 ## 1.1.9
 - Cropped the existing VoidMark banner to the compact logo-heavy section used for Enemy Moves.
 - Reduced Enemy Moves width from 336 to 286 and shortened the banner/header.
