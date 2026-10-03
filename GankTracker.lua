@@ -2052,8 +2052,8 @@ UpdatePanicDisplay = function(forcedCount)
     end
     count = tonumber(count) or 0
 
-    local style = (SpyDB and SpyDB.VoidMarkPanicStyle) or "ring"
-    if style ~= "banner" then style = "ring" end
+    local style = "banner"
+    style = "banner"
     if style == "banner" then
         label:SetText("PANIC   " .. tostring(count) .. " THREAT" .. (count == 1 and "" or "S"))
     elseif style == "ring" then
@@ -3663,46 +3663,6 @@ HelpText("REPORT sends the tab you are looking at: TODAY, WEEK, or RECORDS.", -9
 
 MakeVoidMarkCheckbox("levelBreakdown", "LEVEL BREAKDOWN", 16, -123)
 
-local panicStyleLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-panicStyleLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 16, -154)
-panicStyleLabel:SetText("Panic style")
-panicStyleLabel:SetTextColor(0.56, 0.49, 0.62, 1)
-
-local panicStyleDropdown = CreateFrame("Frame", "VoidMarkPanicStyleDropdown", optionsFrame, "UIDropDownMenuTemplate")
-GT.PanicStyleDropdown = panicStyleDropdown
-panicStyleDropdown:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 78, -142)
-UIDropDownMenu_SetWidth(panicStyleDropdown, 88)
-
-local PANIC_STYLE_NAMES = {
-    ring = "Circle",
-    banner = "Banner",
-}
-
-local PANIC_STYLE_ORDER = {"ring", "banner"}
-
-local function GetPanicStyle()
-    local style = SpyDB and SpyDB.VoidMarkPanicStyle or "ring"
-    if style ~= "banner" then style = "ring" end
-    if SpyDB then SpyDB.VoidMarkPanicStyle = style end
-    return style
-end
-
-UIDropDownMenu_Initialize(panicStyleDropdown, function(self, level)
-    for _, style in ipairs(PANIC_STYLE_ORDER) do
-        local info = UIDropDownMenu_CreateInfo()
-        info.text = PANIC_STYLE_NAMES[style]
-        info.checked = GetPanicStyle() == style
-        info.func = function()
-            if SpyDB then SpyDB.VoidMarkPanicStyle = style end
-            UIDropDownMenu_SetText(panicStyleDropdown, PANIC_STYLE_NAMES[style])
-            if RefreshPanicStyle then RefreshPanicStyle() end
-            CloseDropDownMenus()
-        end
-        UIDropDownMenu_AddButton(info, level)
-    end
-end)
-UIDropDownMenu_SetText(panicStyleDropdown, PANIC_STYLE_NAMES[GetPanicStyle()])
-
 local sendLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 sendLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 16, -190)
 sendLabel:SetText("Send report to")
@@ -3825,9 +3785,6 @@ local function RefreshSimpleOptions()
 
     if simpleButtons.levelBreakdown and simpleButtons.levelBreakdown.SetChecked then
         simpleButtons.levelBreakdown:SetChecked(report.reportStyle == "levels")
-    end
-    if GT.PanicStyleDropdown then
-        UIDropDownMenu_SetText(GT.PanicStyleDropdown, PANIC_STYLE_NAMES[GetPanicStyle()])
     end
     for _, key in ipairs({"party", "guild", "whisper", "say"}) do
         local cb = simpleButtons[key]
@@ -4943,15 +4900,7 @@ SlashCmdList["TALIAAGANK"] = function(msg)
             Print("Panic preview: " .. tostring(count) .. " threats. No chat sent and no history changed.")
         end
     elseif cmd == "panicstyle" then
-        local want = string.lower(rest or "")
-        if PANIC_STYLE_NAMES[want] then
-            if SpyDB then SpyDB.VoidMarkPanicStyle = want end
-            if GT.PanicStyleDropdown then UIDropDownMenu_SetText(GT.PanicStyleDropdown, PANIC_STYLE_NAMES[want]) end
-            if RefreshPanicStyle then RefreshPanicStyle() end
-            Print("Panic style: " .. PANIC_STYLE_NAMES[want])
-        else
-            Print("Panic styles: circle(ring), banner")
-        end
+        Print("Panic style is fixed to Banner.")
     elseif cmd == "panic" then
         GT:Panic()
     elseif cmd == "options" or cmd == "opt" then
