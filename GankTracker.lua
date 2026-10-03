@@ -157,21 +157,22 @@ local function ShowSapAlert(sourceName)
     lastSapAlertAt = now
 
     local shortName = sourceName and tostring(sourceName):match("^([^%-]+)")
-    local msg = shortName and ("SAPPED  •  "..shortName) or "SAPPED"
+    local personalMsg = shortName and ("SAPPED  •  "..shortName) or "SAPPED"
+    local groupMsg = shortName and ("SAPPED BY "..shortName) or "SAPPED"
 
     -- Personal visual warning only; no audio alert.
     if RaidNotice_AddMessage and RaidWarningFrame then
-        RaidNotice_AddMessage(RaidWarningFrame, msg, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or {r=1,g=0.2,b=0.2})
+        RaidNotice_AddMessage(RaidWarningFrame, personalMsg, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or {r=1,g=0.2,b=0.2})
     elseif UIErrorsFrame and UIErrorsFrame.AddMessage then
-        UIErrorsFrame:AddMessage(msg, 1.0, 0.18, 0.22, 1.0)
+        UIErrorsFrame:AddMessage(personalMsg, 1.0, 0.18, 0.22, 1.0)
     end
 
     -- Group safety callout: raid takes priority over party.
     if SendChatMessage then
         if IsInRaid and IsInRaid() then
-            SendChatMessage(msg, "RAID")
+            SendChatMessage(groupMsg, "RAID")
         elseif IsInGroup and IsInGroup() then
-            SendChatMessage(msg, "PARTY")
+            SendChatMessage(groupMsg, "PARTY")
         end
     end
 end
