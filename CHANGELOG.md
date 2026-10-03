@@ -1,3 +1,7 @@
+## 1.0.3
+- Expanded Enemy Moves shared potion cooldown detection across PvP/control, protection, healing/mana event types, movement, defensive, and rage potion effects.
+- Added direct recognition for FAP, LAP, LIP, Swiftness, Greater Stoneshield, and protection-potion aura effects.
+
 ## 1.0.2
 - Added native Enemy Moves PvP cooldown tracker with VoidMark-styled target cooldown bars.
 - Added current-target Paladin Divine Shield/Divine Protection/Blessing of Protection fallback tracking.
