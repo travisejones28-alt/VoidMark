@@ -4025,6 +4025,11 @@ panicFrame.Button:SetScript("OnClick", function()
     GT:Panic()
 end)
 
+local function GetPanicStyle()
+    if SpyDB then SpyDB.VoidMarkPanicStyle = "banner" end
+    return "banner"
+end
+
 RefreshPanicStyle = function()
     if GT.RefreshPanicArt then
         GT:RefreshPanicArt(true)
