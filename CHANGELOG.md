@@ -1,3 +1,9 @@
+## 1.1.9
+- Cropped the existing VoidMark banner to the compact logo-heavy section used for Enemy Moves.
+- Reduced Enemy Moves width from 336 to 286 and shortened the banner/header.
+- Repositioned target text, version, and OPT controls for the smaller frame.
+- Cooldown tracking behavior is unchanged.
+
 ## 1.1.8
 - Restored the full Enemy Moves VoidMark banner artwork top-to-bottom.
 - Removed the vertical crop that was hiding the lower half of the image.
