@@ -1,3 +1,9 @@
+## 1.0.2
+- Added native Enemy Moves PvP cooldown tracker with VoidMark-styled target cooldown bars.
+- Added current-target Paladin Divine Shield/Divine Protection/Blessing of Protection fallback tracking.
+- Added shared 2-minute Potion cooldown tracking when enemy potion use is observable in the combat log.
+- Added Enemy Moves to the VoidMark gear menu and /emoves test/debug controls.
+
 # Changelog
 
 All notable VoidMark release changes are recorded here.
