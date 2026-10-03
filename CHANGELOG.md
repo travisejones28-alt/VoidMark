@@ -1,3 +1,9 @@
+## 1.2.7
+- Enemy Moves target display now shows only the short player name (realm removed).
+- Removed class text from the target label.
+- Added the class icon to the left of the target name.
+- Target name now uses the player's class color.
+
 ## 1.2.6
 - Gear menu now shows Enemy Moves: ON / OFF.
 - Clicking the item persistently enables or disables Enemy Moves instead of merely showing or hiding the current panel.
