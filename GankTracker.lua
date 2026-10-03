@@ -3854,16 +3854,25 @@ simpleButtons.levelBreakdown:SetScript("OnClick", function(self)
 end)
 
 simpleButtons.showPanic:SetScript("OnClick", function(self)
+    local enabled = self:GetChecked() and true or false
     if SpyDB then
-        SpyDB.VoidMarkShowPanicButton = self:GetChecked() and true or false
+        SpyDB.VoidMarkShowPanicButton = enabled
     end
-    if GT.PanicFrame then
-        if SpyDB and SpyDB.VoidMarkShowPanicButton == true then
-            GT.PanicFrame:Show()
-        else
-            GT.PanicFrame:Hide()
-        end
+
+    if enabled then
+        -- Keep Panic visible for one minute after the user enables it so they
+        -- can position/test it even if the Nearby list is currently empty.
+        GT._panicVisibleUntil = GetTime() + 60
+    else
+        GT._panicVisibleUntil = nil
     end
+
+    if RestorePanicVisibility then
+        RestorePanicVisibility()
+    elseif GT.PanicFrame then
+        if enabled then GT.PanicFrame:Show() else GT.PanicFrame:Hide() end
+    end
+
     RefreshSimpleOptions()
 end)
 
@@ -3937,8 +3946,26 @@ RestorePanicPosition()
 
 RestorePanicVisibility = function()
     if not GT.PanicFrame then return end
+
     local enabled = SpyDB and SpyDB.VoidMarkShowPanicButton == true
-    if enabled then
+    if not enabled then
+        GT._panicVisibleUntil = nil
+        if GT.PanicFrame:IsShown() then GT.PanicFrame:Hide() end
+        return
+    end
+
+    local now = GetTime()
+    local graceActive = GT._panicVisibleUntil and now < GT._panicVisibleUntil
+
+    local nearbyCount = 0
+    if Spy and Spy.GetNearbyListSize then
+        nearbyCount = tonumber(Spy:GetNearbyListSize()) or 0
+    elseif Spy and type(Spy.NearbyList) == "table" then
+        for _ in pairs(Spy.NearbyList) do nearbyCount = nearbyCount + 1 end
+    end
+
+    local shouldShow = graceActive or nearbyCount > 0
+    if shouldShow then
         if not GT.PanicFrame:IsShown() then GT.PanicFrame:Show() end
     else
         if GT.PanicFrame:IsShown() then GT.PanicFrame:Hide() end
@@ -4777,6 +4804,10 @@ end)
 UpdateDisplay()
 
 local refreshTicker = C_Timer.NewTicker(1, function()
+    if RestorePanicVisibility then
+        RestorePanicVisibility()
+    end
+
     if GT.Frame and GT.Frame:IsShown() then
         -- Keep the combat log hot path as quiet as possible. Kill/DHK callbacks
         -- already push immediate updates, and PLAYER_REGEN_ENABLED repaints once
