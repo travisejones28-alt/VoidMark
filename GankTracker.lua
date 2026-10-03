@@ -137,6 +137,52 @@ EnsureAnnounceSettings()
 local PANIC_WINDOW_SECONDS = 30
 local PANIC_LEVEL_MARGIN = 3
 
+local SAP_SPELL_IDS = {
+    [6770] = true,  -- Sap Rank 1
+    [2070] = true,  -- Sap Rank 2
+    [11297] = true, -- Sap Rank 3
+}
+local lastSapAlertAt = 0
+
+local function IsSapAlertEnabled()
+    if not SpyDB then return true end
+    if SpyDB.VoidMarkSapAlert == nil then SpyDB.VoidMarkSapAlert = true end
+    return SpyDB.VoidMarkSapAlert == true
+end
+
+local function ShowSapAlert(sourceName)
+    if not IsSapAlertEnabled() then return end
+    local now = GetTime()
+    if now - (lastSapAlertAt or 0) < 2 then return end
+    lastSapAlertAt = now
+
+    local shortName = sourceName and tostring(sourceName):match("^([^%-]+)")
+    local msg = shortName and ("SAPPED  •  "..shortName) or "SAPPED"
+
+    if RaidNotice_AddMessage and RaidWarningFrame then
+        RaidNotice_AddMessage(RaidWarningFrame, msg, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or {r=1,g=0.2,b=0.2})
+    elseif UIErrorsFrame and UIErrorsFrame.AddMessage then
+        UIErrorsFrame:AddMessage(msg, 1.0, 0.18, 0.22, 1.0)
+    end
+
+    if PlaySound and SOUNDKIT and SOUNDKIT.RAID_WARNING then
+        PlaySound(SOUNDKIT.RAID_WARNING, "Master")
+    end
+end
+
+function GT:IsSapAlertEnabled()
+    return IsSapAlertEnabled()
+end
+
+function GT:SetSapAlertEnabled(enabled)
+    if SpyDB then SpyDB.VoidMarkSapAlert = enabled and true or false end
+end
+
+function GT:ToggleSapAlertEnabled()
+    self:SetSapAlertEnabled(not self:IsSapAlertEnabled())
+    return self:IsSapAlertEnabled()
+end
+
 local function PanicPlayerLevel()
     local level = UnitLevel and tonumber(UnitLevel("player")) or nil
     if not level or level < 1 then return 60 end
@@ -4531,6 +4577,15 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
         local _, subEvent, _, sourceGUID, sourceName, sourceFlags, _, destGUID, destName, destFlags, _, payload1, payload2, payload3, payload4, payload5 =
             CombatLogGetCurrentEventInfo()
+
+        -- Personal Rogue safety alert: only fire when Sap actually lands on us.
+        -- This runs before the normal CLEU fast-return because aura events are
+        -- otherwise intentionally ignored by GankTracker's hot path.
+        if (subEvent == "SPELL_AURA_APPLIED" or subEvent == "SPELL_AURA_REFRESH")
+            and SAP_SPELL_IDS[tonumber(payload1)]
+            and destGUID == (combatPlayerGUID or UnitGUID("player")) then
+            ShowSapAlert(sourceName)
+        end
 
         -- End the warning as soon as Classic exposes Feign ending. Also treat
         -- a subsequent action by that same Hunter as proof they broke Feign
