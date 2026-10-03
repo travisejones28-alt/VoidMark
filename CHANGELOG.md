@@ -1,3 +1,8 @@
+## 1.3.0
+- Removed the SHOW PANIC checkbox from Gank Tracker options.
+- Added Panic: ON / OFF to the main VoidMark gear menu.
+- Panic enable/disable behavior and the 60-second grace/Nearby visibility logic are unchanged.
+
 ## 1.2.9
 - Panic button now stays visible for 60 seconds after being enabled.
 - After that grace period, Panic is only shown while the VoidMark/Spy Nearby list contains at least one player.
