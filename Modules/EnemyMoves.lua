@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.2.3"
+local VERSION = "1.2.4"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
 local HEADER_H, STATUS_H = 63, 22
@@ -364,7 +364,9 @@ local function BuildUI()
     -- VOIDMARK + FIND • TRACK • GANK section. This stays sharper than scaling
     -- the smaller dedicated reference texture.
     frame.Banner:SetTexture("Interface\\AddOns\\VoidMark\\Textures\\VoidMarkGeneratedHeader.tga")
-    frame.Banner:SetTexCoord(0.06,0.74,0.00,1.00)
+    -- Frame the VOIDMARK wordmark itself, not the hood/artwork on the left.
+    -- Shift the crop right so the logo fills the header cleanly.
+    frame.Banner:SetTexCoord(0.20,0.90,0.00,1.00)
     frame.Banner:SetAlpha(0.98)
 
     -- Dark lower band keeps module text readable while leaving the banner art
