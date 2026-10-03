@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.0.2"
+local VERSION = "1.0.3"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 20, 2
 local HEADER_H, STATUS_H = 40, 22
@@ -70,7 +70,7 @@ AddSpell({2139},"COUNTERSPELL","Counterspell",30,0,"control","orange",{class="MA
 AddSpell({11958},"ICE_BLOCK","Ice Block",300,10,"defensive","red",{class="MAGE",priority=1})
 AddSpell({11426,13031,13032,13033},"ICE_BARRIER","Ice Barrier",30,0,"defensive","red",{class="MAGE",priority=2})
 AddSpell({1953},"BLINK","Blink",15,0,"mobility","purple",{class="MAGE",priority=20})
-AddSpell({122,865,6131,10230},"FROST_NOVA","Frost Nova",25,0,"control","orange",{class="MAGE",priority=11})
+AddSpell({122,865,6131,10230},"FROST_NOVA","Frost Nova",21,0,"control","orange",{class="MAGE",priority=11})
 AddSpell({12472},"COLD_SNAP","Cold Snap",600,0,"utility","blue",{class="MAGE",priority=30,reset={"ICE_BLOCK","ICE_BARRIER","FROST_NOVA"}})
 AddSpell({12043},"PRESENCE_OF_MIND","Presence of Mind",180,15,"offensive","blue",{class="MAGE",priority=40})
 AddSpell({12042},"ARCANE_POWER","Arcane Power",180,15,"offensive","blue",{class="MAGE",priority=41})
@@ -122,15 +122,15 @@ AddSpell({642,1020},"DIVINE_SHIELD","Divine Shield",300,12,"defensive","red",{cl
 AddSpell({498,5573},"DIVINE_PROTECTION","Divine Protection",300,8,"defensive","red",{class="PALADIN",priority=2})
 AddSpell({1022,5599,10278},"BLESSING_PROTECTION","Blessing of Protection",180,10,"defensive","red",{class="PALADIN",priority=3})
 AddSpell({853,5588,5589,10308},"HAMMER_JUSTICE","Hammer of Justice",30,0,"control","orange",{class="PALADIN",priority=10})
-AddSpell({633,2800,10310},"LAY_ON_HANDS","Lay on Hands",3600,0,"defensive","red",{class="PALADIN",priority=4})
+AddSpell({633,2800,10310},"LAY_ON_HANDS","Lay on Hands",2400,0,"defensive","red",{class="PALADIN",priority=4})
 AddSpell({20216},"DIVINE_FAVOR","Divine Favor",120,20,"offensive","blue",{class="PALADIN",priority=40})
 
 -- Shaman
-AddSpell({8042,8044,8045,8046,10412,10413,10414},"EARTH_SHOCK","Earth Shock",6,0,"control","orange",{class="SHAMAN",priority=10})
+AddSpell({8042,8044,8045,8046,10412,10413,10414},"EARTH_SHOCK","Earth Shock",5,0,"control","orange",{class="SHAMAN",priority=10})
 AddSpell({16188},"NATURES_SWIFTNESS_SHAMAN","Nature's Swiftness",180,15,"offensive","blue",{class="SHAMAN",priority=40})
 AddSpell({16166},"ELEMENTAL_MASTERY","Elemental Mastery",180,30,"offensive","blue",{class="SHAMAN",priority=41})
 AddSpell({16190},"MANA_TIDE_TOTEM","Mana Tide Totem",300,12,"utility","blue",{class="SHAMAN",priority=31})
-AddSpell({8177},"GROUNDING_TOTEM","Grounding Totem",15,45,"utility","gray",{class="SHAMAN",priority=32})
+AddSpell({8177},"GROUNDING_TOTEM","Grounding Totem",15,0,"utility","gray",{class="SHAMAN",priority=32})
 
 -- Engineering / items
 AddSpell({23132},"SHADOW_REFLECTOR","Shadow Reflector",300,5,"defensive","red",{priority=4})
@@ -449,7 +449,7 @@ function EM:Refresh()
 
     local list=BuildRows(e,Now())
     if #list==0 then
-        frame.Status:SetText("ALL TRACKED MOVES READY") SetColor(frame.Status,C.green) frame.StatusBG:SetVertexColor(0.03,0.20,0.08,0.95)
+        frame.Status:SetText("NO OBSERVED COOLDOWNS") SetColor(frame.Status,C.dim) frame.StatusBG:SetVertexColor(0.09,0.04,0.12,0.90)
     elseif list[1].active then
         frame.Status:SetText("ACTIVE: "..list[1].def.name)
         local c=list[1].def.category=="defensive" and C.red or C.orange
