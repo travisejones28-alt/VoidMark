@@ -1,3 +1,8 @@
+## 1.1.3
+- Removed the dark Enemy Moves header bar.
+- Target/class text now floats directly over the VoidMark banner.
+- Header separator line is hidden for a cleaner integrated look.
+
 ## 1.1.2
 - Simplified Enemy Moves banner header by removing the redundant ENEMY MOVES title.
 - Reduced banner/header height and tightened spacing.
