@@ -660,6 +660,25 @@ function VM:StyleRow(num, name, desc, opacity)
 
     local data = SafePlayerData(name)
     local class = data and data.class
+
+    -- Feed row hover into Enemy Moves. Keep the existing row scripts intact:
+    -- hovering only previews a player when we currently have live cooldowns
+    -- recorded for them, and leaving restores the pinned/current enemy.
+    row.VoidMarkEnemyMovesName = name
+    row.VoidMarkEnemyMovesGUID = data and data.guid
+    if not row.VoidMarkEnemyMovesHoverHooked then
+        row.VoidMarkEnemyMovesHoverHooked = true
+        row:HookScript("OnEnter", function(self)
+            if VoidMarkEnemyMoves and VoidMarkEnemyMoves.HoverPlayer then
+                VoidMarkEnemyMoves:HoverPlayer(self.VoidMarkEnemyMovesName,self.VoidMarkEnemyMovesGUID)
+            end
+        end)
+        row:HookScript("OnLeave", function()
+            if VoidMarkEnemyMoves and VoidMarkEnemyMoves.ClearHover then
+                VoidMarkEnemyMoves:ClearHover()
+            end
+        end)
+    end
     local r, g, b = ClassColor(class)
     local isKOS = IsKOS(name)
     local isStealth = IsStealth(name)
