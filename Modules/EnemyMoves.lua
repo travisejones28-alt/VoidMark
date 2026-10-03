@@ -68,9 +68,10 @@ AddSpell({14185},"PREPARATION","Preparation",600,0,"utility","blue",{class="ROGU
 -- Mage
 AddSpell({2139},"COUNTERSPELL","Counterspell",30,0,"control","orange",{class="MAGE",priority=10})
 AddSpell({11958},"ICE_BLOCK","Ice Block",300,10,"defensive","red",{class="MAGE",priority=1})
+AddSpell({11426,13031,13032,13033},"ICE_BARRIER","Ice Barrier",30,60,"defensive","red",{class="MAGE",priority=2})
 AddSpell({1953},"BLINK","Blink",15,0,"mobility","purple",{class="MAGE",priority=20})
 AddSpell({122,865,6131,10230},"FROST_NOVA","Frost Nova",25,0,"control","orange",{class="MAGE",priority=11})
-AddSpell({12472},"COLD_SNAP","Cold Snap",600,0,"utility","blue",{class="MAGE",priority=30,reset={"ICE_BLOCK","FROST_NOVA"}})
+AddSpell({12472},"COLD_SNAP","Cold Snap",600,0,"utility","blue",{class="MAGE",priority=30,reset={"ICE_BLOCK","ICE_BARRIER","FROST_NOVA"}})
 AddSpell({12043},"PRESENCE_OF_MIND","Presence of Mind",180,15,"offensive","blue",{class="MAGE",priority=40})
 AddSpell({12042},"ARCANE_POWER","Arcane Power",180,15,"offensive","blue",{class="MAGE",priority=41})
 AddSpell({11129},"COMBUSTION","Combustion",180,0,"offensive","blue",{class="MAGE",priority=42})
