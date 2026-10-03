@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.0.3"
+local VERSION = "1.0.4"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 20, 2
 local HEADER_H, STATUS_H = 40, 22
@@ -18,7 +18,7 @@ local C = {
 
 local SPELLS, CANON = {}, {}
 local enemies, petOwner = {}, {}
-local targetGUID, frame, options, ticker
+local targetGUID, duelGUID, duelName, frame, options, ticker
 local testMode, testGUID = false, "VOIDMARK-ENEMYMOVES-TEST"
 
 local function Now() return GetTime() end
@@ -549,9 +549,55 @@ local eventFrame=CreateFrame("Frame")
 eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-eventFrame:SetScript("OnEvent",function(_,event)
-    if event=="PLAYER_TARGET_CHANGED" then testMode=false UpdateTarget() EM:Refresh() return end
-    if event=="PLAYER_ENTERING_WORLD" then BuildUI() UpdateTarget() EM:Refresh() return end
+eventFrame:RegisterEvent("DUEL_REQUESTED")
+eventFrame:RegisterEvent("DUEL_INBOUNDS")
+eventFrame:RegisterEvent("DUEL_FINISHED")
+eventFrame:SetScript("OnEvent",function(_,event,...)
+    if event=="PLAYER_TARGET_CHANGED" then
+        testMode=false
+        UpdateTarget()
+        -- During a duel, remember the opponent GUID as soon as they are targeted.
+        if duelName and UnitExists("target") and UnitIsPlayer("target") then
+            local n,r=UnitName("target")
+            local full=n
+            if n and r and r~="" then full=n.."-"..r end
+            if n==duelName or full==duelName then
+                duelGUID=UnitGUID("target")
+            end
+        end
+        EM:Refresh()
+        return
+    end
+    if event=="PLAYER_ENTERING_WORLD" then
+        BuildUI()
+        UpdateTarget()
+        EM:Refresh()
+        return
+    end
+    if event=="DUEL_REQUESTED" then
+        duelName=...
+        if UnitExists("target") and UnitIsPlayer("target") then
+            local n,r=UnitName("target")
+            local full=n
+            if n and r and r~="" then full=n.."-"..r end
+            if n==duelName or full==duelName then duelGUID=UnitGUID("target") end
+        end
+        return
+    end
+    if event=="DUEL_INBOUNDS" then
+        if not duelGUID and UnitExists("target") and UnitIsPlayer("target") then
+            duelGUID=UnitGUID("target")
+            local n,r=UnitName("target")
+            duelName=n
+            if n and r and r~="" then duelName=n.."-"..r end
+        end
+        return
+    end
+    if event=="DUEL_FINISHED" then
+        duelGUID=nil
+        duelName=nil
+        return
+    end
 
     local _,subevent,_,sourceGUID,sourceName,sourceFlags,_,destGUID,destName,_,_,spellID,spellName=CombatLogGetCurrentEventInfo()
     if subevent~="SPELL_CAST_SUCCESS"
@@ -565,7 +611,7 @@ eventFrame:SetScript("OnEvent",function(_,event)
     if not sourceGUID then return end
 
     local ownerGUID,ownerName,ownerClass
-    if IsHostilePlayer(sourceFlags) then
+    if IsHostilePlayer(sourceFlags) or (duelGUID and sourceGUID==duelGUID) then
         ownerGUID,ownerName,ownerClass=sourceGUID,sourceName,ClassFromGUID(sourceGUID)
     elseif petOwner[sourceGUID] then
         ownerGUID=petOwner[sourceGUID]
