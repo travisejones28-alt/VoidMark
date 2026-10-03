@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.2.7"
+local VERSION = "1.2.8"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
 local HEADER_H, STATUS_H = 63, 22
@@ -426,7 +426,7 @@ local function BuildUI()
     frame.TargetClassIcon:Hide()
 
     frame.Target=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
-    frame.Target:SetWidth(104)
+    frame.Target:SetWidth(86)
     frame.Target:SetJustifyH("LEFT")
     frame.Target:SetShadowOffset(1,-1)
     frame.Target:SetShadowColor(0,0,0,1)
@@ -450,10 +450,11 @@ local function BuildUI()
     frame.StatusTop:SetTexture("Interface\\Buttons\\WHITE8X8")
     frame.StatusTop:SetVertexColor(C.purple[1],C.purple[2],C.purple[3],0.42)
 
-    frame.Status=frame:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+    frame.Status=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
     frame.Status:SetPoint("LEFT",frame.Target,"RIGHT",4,0)
     frame.Status:SetPoint("RIGHT",frame.StatusBG,"RIGHT",-6,0)
     frame.Status:SetJustifyH("RIGHT")
+    frame.Status:SetWordWrap(false)
     frame.Status:SetShadowOffset(1,-1)
     frame.Status:SetShadowColor(0,0,0,1)
     frame.Status:SetText("WAITING")
@@ -629,7 +630,7 @@ function EM:Refresh()
 
     local list=BuildRows(e,Now())
     if #list==0 then
-        frame.Status:SetText("NO OBSERVED COOLDOWNS") SetColor(frame.Status,C.dim) frame.StatusBG:SetVertexColor(0.09,0.04,0.12,0.90)
+        frame.Status:SetText("NO COOLDOWNS") SetColor(frame.Status,C.dim) frame.StatusBG:SetVertexColor(0.09,0.04,0.12,0.90)
     elseif list[1].active then
         frame.Status:SetText(string.format("ACTIVE: %s (%s)",list[1].def.name,ActiveTime(list[1].activeRemain or 0)))
         local c=list[1].def.category=="defensive" and C.red or C.orange
