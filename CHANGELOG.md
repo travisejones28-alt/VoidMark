@@ -1,3 +1,7 @@
+## 1.0.9
+- Enemy Moves now hides and clears a pinned enemy as soon as that player drops out of VoidMark's Nearby tracker.
+- Vanish/target loss still keeps the panel pinned while the enemy remains tracked by VoidMark.
+
 ## 1.0.8
 - Enemy Moves active header now includes the live effect countdown, e.g. ACTIVE: Evasion (13s).
 - Active row countdowns now include an explicit seconds suffix.
