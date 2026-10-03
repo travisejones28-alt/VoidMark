@@ -1,3 +1,8 @@
+## 1.2.1
+- Added a dedicated EnemyMovesHeader.tga converted directly from the user-provided VOIDMARK / FIND • TRACK • GANK reference image.
+- Enemy Moves now uses that texture directly instead of cropping VoidMarkGeneratedHeader.tga.
+- Removed old banner crop coordinates and reduced the frame/header around the dedicated asset.
+
 ## 1.2.0
 - Reworked Enemy Moves to match the user-provided compact VoidMark logo crop.
 - Banner now uses a centered horizontal crop while preserving the full vertical artwork and correct logo/tagline proportions.
