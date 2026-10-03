@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.0.8"
+local VERSION = "1.0.9"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 20, 2
 local HEADER_H, STATUS_H = 40, 22
@@ -19,6 +19,7 @@ local C = {
 local SPELLS, CANON = {}, {}
 local enemies, petOwner = {}, {}
 local targetGUID, pinnedGUID, hoverGUID, duelGUID, duelName, frame, options, ticker
+local IsStillTrackedByVoidMark
 local testMode, testGUID = false, "VOIDMARK-ENEMYMOVES-TEST"
 
 local function Now() return GetTime() end
@@ -583,7 +584,7 @@ local function FindEnemyByName(name,guid)
     return nil,nil
 end
 
-local function IsStillTrackedByVoidMark(e)
+IsStillTrackedByVoidMark = function(e)
     if not e or not e.name then return false end
     if not Spy or type(Spy.NearbyList)~="table" then return true end
     if Spy.NearbyList[e.name] then return true end
