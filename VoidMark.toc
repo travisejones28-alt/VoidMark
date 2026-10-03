@@ -50,6 +50,7 @@ Modules\TaliaaTaunt.lua
 Modules\TaliaaBoats.lua
 Modules\RideOrDie.lua
 Modules\DamageRecords.lua
+Modules\EnemyMoves.lua
 VoidMarkUI.lua
 Modules\MinimapButton.lua
 MCMarks.lua
