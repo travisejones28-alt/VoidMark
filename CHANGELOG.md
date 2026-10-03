@@ -1,3 +1,11 @@
+## 1.0.5
+- Enemy Moves now always displays time until the ability can be used again; ACTIVE is only a separate state marker.
+- Added conservative PvP cooldown values for talented Rogue, Warrior Intercept, Paladin Hammer of Justice, and Blessing of Protection cases.
+- Preparation now resets the tracked Rogue abilities it can refresh, including Kick, Kidney Shot, Gouge, Blind, Vanish, Sprint, and Evasion.
+- Added missing Rogue Kick ranks and Evasion rank 2.
+- Fixed aura-only repeat uses so an expired cooldown can restart even when SPELL_CAST_SUCCESS is not observed.
+- Fixed Enemy Moves OPT button and persistent hide/show behavior.
+
 ## 1.0.4
 - Fixed Enemy Moves shared Potion timer for mana/healing potion combat-log events (SPELL_ENERGIZE / SPELL_HEAL).
 - Confirmed Major Mana Potion surfaces as Restore Mana (spell 17531), so recognized potion events now start the 2:00 lockout regardless of event type.
