@@ -1,3 +1,9 @@
+## 1.0.8
+- Enemy Moves active header now includes the live effect countdown, e.g. ACTIVE: Evasion (13s).
+- Active row countdowns now include an explicit seconds suffix.
+- Enemy Moves keeps the last hostile player pinned through target loss/Vanished state until another hostile player is targeted.
+- Hovering a player in the VoidMark list temporarily previews that player's live tracked cooldowns, then restores the pinned/current target on mouse leave.
+
 ## 1.0.7
 - Enemy Moves active rows now show the active-effect countdown inline, e.g. Evasion ACTIVE (8s), while preserving the recast cooldown on the right.
 
