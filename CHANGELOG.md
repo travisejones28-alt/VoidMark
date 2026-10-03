@@ -1,3 +1,8 @@
+## 1.2.5
+- Enemy Moves now hides immediately when the hostile target is lost.
+- Exception: if the current target is a Rogue and VoidMark observes Vanish while that Rogue remains in the Nearby list, the panel stays on that Rogue for up to 30 seconds.
+- Hover preview behavior is unchanged: it only overrides the current target for players with live tracked cooldowns.
+
 ## 1.2.4
 - Shifted the Enemy Moves banner crop to frame the VOIDMARK wordmark itself instead of the hood artwork on the left.
 - Header now uses the wordmark as the visual center of the compact panel.
