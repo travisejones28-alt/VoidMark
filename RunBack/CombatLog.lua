@@ -91,6 +91,19 @@ function A:CombatEvent(timestamp,event,hideCaster,sg,sn,sf,srf,dg,dn,df,drf,...)
         return
     end
 
+    -- This engine receives its own death callback, independently of Spy/GT.
+    -- Apply the same Hunter classification before pinning a fake corpse timer.
+    local gt=TaliaaGankTracker
+    local payload2,payload5=select(2,...),select(5,...)
+    local unconscious
+    if event=="PARTY_KILL" then unconscious=payload5 else unconscious=payload2 end
+    if unconscious==true or unconscious==1 or unconscious=="1" then return end
+    if gt and gt.IsUnitCurrentlyFeigningName and gt:IsUnitCurrentlyFeigningName(dn) then return end
+    if event=="UNIT_DIED" and gt then
+        if gt.ShouldSuppressHunterUnitDied and gt:ShouldSuppressHunterUnitDied(dn,dg) then return end
+        if gt.IsRecentFeign and gt:IsRecentFeign(dn,dg) then return end
+    end
+
     local eligible=(event=="PARTY_KILL" and self:IsOurSource(sg,sf)) or (self.involved[dg] and now-self.involved[dg]<=self.db.settings.assist)
     if not eligible then self.metrics.ignored=self.metrics.ignored+1; return end
     self.lastDeath=self.lastDeath or {}

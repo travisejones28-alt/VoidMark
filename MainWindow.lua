@@ -186,7 +186,10 @@ function Spy:CreateRow(num)
 	-- Use PreClick, not OnClick. SecureActionButtonTemplate performs
 	-- its protected target action as part of the secure click path.
 	-- Replacing OnClick can prevent that secure action from firing.
-	row:SetScript("PreClick", function(self, button)
+	row:SetScript("PreClick", function(self, button, down)
+		-- Both phases are registered for secure targeting. Run menu/modifier
+		-- actions only on release so one click cannot toggle a setting twice.
+		if down then return end
 		Spy:ButtonClicked(self, button)
 	end)
 end
@@ -1246,12 +1249,12 @@ function Spy:EnsureCombatQueueBar()
         f:SetPoint("TOPRIGHT", Spy.MainWindow, "TOPRIGHT", -2, -54)
         f:SetHeight(math.max(18, Spy.db.profile.MainWindow.RowHeight or 18))
         f:SetFrameLevel(Spy.MainWindow:GetFrameLevel() + 70)
-        f:SetBackdrop({ bgFile = "Interface\Tooltips\UI-Tooltip-Background" })
+        f:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background" })
         f:SetBackdropColor(0.10, 0.02, 0.16, 0.94)
         f.Icon = f:CreateTexture(nil, "ARTWORK")
         f.Icon:SetSize(14, 14)
         f.Icon:SetPoint("LEFT", f, "LEFT", 4, 0)
-        f.Icon:SetTexture("Interface\TargetingFrame\UI-RaidTargetingIcon_8")
+        f.Icon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
         f.Text = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         f.Text:SetPoint("LEFT", f.Icon, "RIGHT", 4, 0)
         f.Text:SetPoint("RIGHT", f, "RIGHT", -4, 0)

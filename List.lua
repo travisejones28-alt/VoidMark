@@ -19,7 +19,7 @@ StaticPopupDialogs["Spy_SetKOSReasonOther"] = {
     OnAccept = function(self)
 		local editBox = self.GetEditBox and self:GetEditBox() or self.editBox
 		local reason = editBox:GetText()
-		Spy:SetKOSReason(self.playerName, reason, data)		
+		Spy:SetKOSReason(self.playerName, L["KOSReasonOther"], reason)
 	end,
 };
 
@@ -713,14 +713,15 @@ function Spy:ToggleIgnorePlayer(ignore, player)
 end
 
 function Spy:ToggleKOSPlayer(kos, player)
+	if not player or player == "" then return end
 	if kos then
 		Spy:AddKOSData(player)
 		Spy:RemoveIgnoreData(player)
-		if player ~= SpyPerCharDB.PlayerData[name] then
+		if not SpyPerCharDB.PlayerData[player] then
 --			Spy:UpdatePlayerData(player, nil, nil, nil, nil, nil, true, nil, nil)
 			Spy:UpdatePlayerStatus(player, nil, nil, nil, nil, nil, true, nil, nil)
-			SpyPerCharDB.PlayerData[player].kos = 1
-		end	
+		end
+		SpyPerCharDB.PlayerData[player].kos = 1
 		if Spy.db.profile.EnableSound then
 			PlaySoundFile("Interface\\AddOns\\VoidMark\\Sounds\\list-add.mp3", Spy.db.profile.SoundChannel)
 		end

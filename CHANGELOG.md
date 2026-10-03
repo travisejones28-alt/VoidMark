@@ -1,3 +1,16 @@
+## 1.3.8 — October 3 audit
+- Fixed late-local scope errors in Hunter kill/Feign handling, record headings and sync-button state; corrected the Hunter helper's method calling convention.
+- Feign Death no longer reaches the independent run-back death path; confirmed real Hunter kills still count once.
+- Fixed first-event suppression immediately after client startup and Sap echo/duplicate warnings.
+- Coalesced duplicate party cooldown reports; handled casterless buff removals; preserved active buffs through cooldown resets.
+- Priest Shadow Protection no longer starts the potion cooldown tracker.
+- Fixed run-back capacity/expiry pin cleanup and duplicate name-resolution matches.
+- Fixed queued manual ground sets and cancelled delayed riding swaps when auto swapping is disabled.
+- Fixed custom KOS reasons and repeated modifier/menu actions on mouse-down and mouse-up.
+- Added out-of-combat cleanup for transient combat/cooldown caches; permanent kill/player history is retained.
+- Corrected combat queue texture paths; aligned TOC and runtime version; removed the legacy /spy command alias.
+- Added reproducible structure and behavior checks. See AUDIT-2026-10-03.md for coverage and remaining client checks.
+
 ## 1.3.4
 - Removed the large local Sap visual and sound from the player who is actually Sapped.
 - Sap still broadcasts the skull-marked Party/Raid chat callout.

@@ -98,7 +98,7 @@ local function Location()
 end
 
 local function SpellInfoSafe(spellID, fallback)
-    local name, icon
+    local name, icon, _
     if GetSpellInfo and spellID then
         name, _, icon = GetSpellInfo(spellID)
     end

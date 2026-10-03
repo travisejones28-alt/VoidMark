@@ -73,15 +73,20 @@ function A:PruneTimers()
         -- Keep the enemy visible after the earliest-return floor is reached.
         -- This is display-only; it never changes the calculated floor.
         if (type(r.readyAt)=="number" and now>=r.readyAt+linger) or nowEpoch-r.diedAt>self.db.settings.retention then
-            if self.OnVoidMarkTimerRemoved then self:OnVoidMarkTimerRemoved(r, "expired") end
             self.active[guid]=nil
+            if self.OnVoidMarkTimerRemoved then self:OnVoidMarkTimerRemoved(r, "expired") end
             changed=true
         else
             list[#list+1]=r
         end
     end
     table.sort(list,function(a,b) return a.diedAt>b.diedAt end)
-    for i=65,#list do self.active[list[i].guid]=nil; changed=true end
+    for i=65,#list do
+        local r=list[i]
+        self.active[r.guid]=nil
+        if self.OnVoidMarkTimerRemoved then self:OnVoidMarkTimerRemoved(r, "capacity") end
+        changed=true
+    end
     if changed and self.char then self:Save() end
 end
 

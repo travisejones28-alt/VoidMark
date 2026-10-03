@@ -183,7 +183,7 @@ local POTION_EFFECT_NAMES={
     ["Magic Resistance"]=true,
     ["Frost Protection"]=true,
     ["Fire Protection"]=true,
-    ["Shadow Protection"]=true,
+    -- Shadow Protection also names a Priest buff; potion IDs below identify it.
     ["Nature Protection"]=true,
     ["Arcane Protection"]=true,
 
@@ -256,6 +256,7 @@ local function GetEnemy(guid,name,class)
     if not guid then return nil end
     local e=enemies[guid]
     if not e then e={guid=guid,name=name or "Unknown",class=class,spells={},seen={}} enemies[guid]=e end
+    e.lastSeen=Now()
     if name and name~="" then e.name=name end
     if class and class~="" then e.class=class end
     return e
@@ -315,7 +316,7 @@ local function ApplyReset(e,def)
     if not e or not def or not def.reset then return end
     for _,key in ipairs(def.reset) do
         local s=e.spells[key]
-        if s then s.cooldownEnd=Now() s.activeEnd=nil end
+        if s then s.cooldownEnd=Now() end
     end
 end
 local function TrackSpell(ownerGUID,ownerName,ownerClass,spellID,spellName,event)
@@ -328,6 +329,13 @@ local function TrackSpell(ownerGUID,ownerName,ownerClass,spellID,spellName,event
     if not def then return false end
     local e=GetEnemy(ownerGUID,ownerName,ownerClass or def.class)
     if not e then return false end
+    -- Local combat log plus multiple group observers can report one event.
+    -- Coalesce repeats before starting cooldowns or applying resets again.
+    e.lastEvents=e.lastEvents or {}
+    local eventKey=tostring(spellID or def.key)..":"..tostring(event)
+    local now=Now()
+    if e.lastEvents[eventKey] and now-e.lastEvents[eventKey]<0.5 then return false end
+    e.lastEvents[eventKey]=now
     if def.reset and event=="SPELL_CAST_SUCCESS" then
         StartCooldown(e,def,spellID) ApplyReset(e,def) return true
     end
@@ -606,7 +614,7 @@ local function BuildRows(e,now)
             if not def and key=="PVP_TRINKET" then def={key=key,name="PvP Trinket",cd=300,active=0,category="utility",color="gray",priority=25} end
             if def then
                 local remain,active,activeRemain=Remaining(s,def,now)
-                if remain>0 then
+                if remain>0 or active then
                     list[#list+1]={
                         state=s,
                         def=def,
@@ -890,7 +898,7 @@ local function ReceiveTrackedMessage(message)
     if type(message)~="string" then return end
     local guid,name,class,spellID,event=message:match("^([^~]+)~([^~]*)~([^~]*)~([^~]+)~([^~]+)$")
     spellID=tonumber(spellID)
-    if not guid or not spellID or not event then return end
+    if not guid or guid:sub(1,7)~="Player-" or not spellID or not event then return end
     if not SPELLS[spellID] then return end
     if event~="SPELL_CAST_SUCCESS"
         and event~="SPELL_AURA_APPLIED"
@@ -938,7 +946,11 @@ eventFrame:SetScript("OnEvent",function(_,event,...)
         return
     end
     if event=="CHAT_MSG_ADDON" then
-        local prefix,message,channel=...
+        local prefix,message,channel,sender=...
+        local player=UnitName("player")
+        local realm=GetRealmName and GetRealmName()
+        local fullSelf=player and realm and (player.."-"..realm:gsub("%s", ""))
+        if sender==player or sender==fullSelf then return end
         if prefix==SHARE_PREFIX and (channel=="PARTY" or channel=="RAID") then
             ReceiveTrackedMessage(message)
         end
@@ -978,10 +990,16 @@ eventFrame:SetScript("OnEvent",function(_,event,...)
         and subevent~="SPELL_ENERGIZE" then
         return
     end
-    if not sourceGUID then return end
+    -- Aura removals sometimes omit the original caster. Use the known aura
+    -- recipient so an ended buff disappears immediately instead of lingering.
+    local removedEnemy = subevent=="SPELL_AURA_REMOVED" and not sourceGUID
+        and destGUID and enemies[destGUID]
+    if not sourceGUID and not removedEnemy then return end
 
     local ownerGUID,ownerName,ownerClass
-    if IsHostilePlayer(sourceFlags)
+    if removedEnemy then
+        ownerGUID,ownerName,ownerClass=destGUID,destName,removedEnemy.class
+    elseif IsHostilePlayer(sourceFlags)
         or (duelGUID and sourceGUID==duelGUID)
         or (duelName and SamePlayerName(sourceName,duelName)) then
         if duelName and SamePlayerName(sourceName,duelName) and not duelGUID then
@@ -1032,7 +1050,30 @@ eventFrame:SetScript("OnEvent",function(_,event,...)
     if ownerGUID==targetGUID or ownerGUID==vanishedGUID or testMode then EM:Refresh() end
 end)
 
+local lastCacheCleanup=0
+local function PruneTrackingCaches(now)
+    if now-lastCacheCleanup<30 then return end
+    lastCacheCleanup=now
+    for key,at in pairs(recentShares) do
+        if now-at>5 then recentShares[key]=nil end
+    end
+    for guid,e in pairs(enemies) do
+        if guid~=targetGUID and guid~=hoverGUID and guid~=vanishedGUID and guid~=testGUID
+            and now-(e.lastSeen or now)>3600 then
+            enemies[guid]=nil
+        elseif e.lastEvents then
+            for key,at in pairs(e.lastEvents) do
+                if now-at>5 then e.lastEvents[key]=nil end
+            end
+        end
+    end
+    for pet,owner in pairs(petOwner) do
+        if not enemies[owner] and owner~=targetGUID then petOwner[pet]=nil end
+    end
+end
+
 ticker=C_Timer.NewTicker(0.10,function()
+    if not (InCombatLockdown and InCombatLockdown()) then PruneTrackingCaches(Now()) end
     if frame and frame:IsShown() then EM:Refresh() end
     LearnTargetPet()
 end)

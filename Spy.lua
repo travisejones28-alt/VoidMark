@@ -5,7 +5,7 @@ local fonts = SM:List("font")
 local _
 
 Spy = LibStub("AceAddon-3.0"):NewAddon("Spy", "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
-Spy.Version = "1.3.7"
+Spy.Version = "1.3.8"
 Spy.DatabaseVersion = "1.1"
 Spy.Signature = "[Spy]"
 Spy.ButtonLimit = 15
@@ -1401,9 +1401,8 @@ function Spy:SetupOptions()
 	self.optionsCategoryIDs = {}
 
  	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("Spy", Spy.options)
-	-- VoidMark is the primary command name now. Keep /spy as a legacy alias
-	-- so existing habits/macros continue to work.
-	LibStub("AceConfig-3.0"):RegisterOptionsTable("VoidMark Commands", Spy.optionsSlash, {"voidmark", "vm", "spy"})
+	-- Public commands use the VoidMark name; SavedVariables retain compatibility.
+	LibStub("AceConfig-3.0"):RegisterOptionsTable("VoidMark Commands", Spy.optionsSlash, {"voidmark", "vm"})
 
 	local ACD3 = LibStub("AceConfigDialog-3.0")
 	local function AddOptionsFrame(key, appName, displayName, parent, group)

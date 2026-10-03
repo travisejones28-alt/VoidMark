@@ -22,11 +22,14 @@ local function ResolveSpyName(raw)
     local rawBase=Lower(BaseName(raw))
     local exactBase=nil
     local matches=0
+    local matchedKeys={}
     local function scan(tbl)
         if type(tbl)~="table" then return end
         for key in pairs(tbl) do
             if Lower(key)==rawLower then return key,true end
-            if Lower(BaseName(key))==rawBase then exactBase=key; matches=matches+1 end
+            if Lower(BaseName(key))==rawBase and not matchedKeys[key] then
+                matchedKeys[key]=true; exactBase=key; matches=matches+1
+            end
         end
     end
     local key,found=scan(Spy.NearbyList); if found then return key end
@@ -155,9 +158,9 @@ function RB:OnVoidMarkTimerRemoved(r, reason)
     if not r then return end
     local name=r.voidMarkName or ResolveSpyName(r.name)
     if not name then return end
-    Spy.RunBackPinned[name]=nil
-    RB.byVoidMarkName[Lower(name)]=nil
-    RB.byVoidMarkName[Lower(BaseName(name))]=nil
+    if Spy.RunBackPinned[name]==r.guid then Spy.RunBackPinned[name]=nil end
+    if RB.byVoidMarkName[Lower(name)]==r.guid then RB.byVoidMarkName[Lower(name)]=nil end
+    if RB.byVoidMarkName[Lower(BaseName(name))]==r.guid then RB.byVoidMarkName[Lower(BaseName(name))]=nil end
 
     -- If the enemy has actually been detected again recently, hand the row back
     -- to normal VoidMark expiration. Otherwise remove the dead pinned row now.

@@ -303,7 +303,7 @@ function TRD:CheckMountState(force)
 
     if mounted then
         C_Timer.After(0.25, function()
-            if TRD.db and IsRealMount() then
+            if TRD.db and TRD.db.enabled and IsRealMount() then
                 TRD:ApplyMode("riding")
             end
         end)
@@ -865,7 +865,7 @@ TRD:SetScript("OnEvent", function(self, event, ...)
     elseif event == "PLAYER_REGEN_ENABLED" then
         if self.db.enabled then
             local desired = self:GetDesiredMode()
-            if desired == "ground" then
+            if desired == "ground" and not self.db.pendingGroundSet then
                 self.db.pendingGroundSet = self:GetGroundSetName()
             end
             self.db.pendingMode = desired

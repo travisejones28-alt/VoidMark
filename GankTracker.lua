@@ -1,11 +1,16 @@
 -- TaliaaSpy Gank Tracker
 -- Panic main-menu toggle: 2026-10-02
-local GANKTRACKER_BUILD = "2026-09-28 PET-DAILY-CLEAN-FOOTER"
+local GANKTRACKER_BUILD = "2026-10-03 1.3.8 AUDIT"
 -- Daily combined kill tracker + reload-safe local session + global historical repository.
 -- Daily victim announcement count fix build: 2026-08-25
 
 TaliaaGankTracker = TaliaaGankTracker or {}
 local GT = TaliaaGankTracker
+-- Shared with RecordKill: declare before its closures, never as late locals.
+local recentOutgoingVictims = {}
+local recentConfirmedPlayerKills = {}
+local IsUnitCurrentlyFeigningName, MarkHunterFeign
+local lastLabel, syncButton
 local VOIDMARK_GANK_BUILD = "2026-09-03-stable-local-session"
 
 GT.totalKills = GT.totalKills or 0
@@ -49,8 +54,8 @@ end
 local function RecordHunterPetKill(petName, petGUID)
     local now = GetTime()
     local key = tostring(petGUID or petName or "?")
-    local last = tonumber(GT.recentHunterPetKills[key]) or 0
-    if now - last < 6 then return false end
+    local last = tonumber(GT.recentHunterPetKills[key])
+    if last and now - last < 6 then return false end
     GT.recentHunterPetKills[key] = now
 
     local db = EnsureHunterPetStats()
@@ -142,7 +147,8 @@ local SAP_SPELL_IDS = {
     [2070] = true,  -- Sap Rank 2
     [11297] = true, -- Sap Rank 3
 }
-local lastSapAlertAt = 0
+local lastSapAlertAt
+local recentRemoteSapAlerts = {}
 
 local function IsSapAlertEnabled()
     if not SpyDB then return true end
@@ -161,7 +167,7 @@ end
 local function ShowSapAlert(sourceName)
     if not IsSapAlertEnabled() then return end
     local now = GetTime()
-    if now - (lastSapAlertAt or 0) < 2 then return end
+    if lastSapAlertAt and now - lastSapAlertAt < 2 then return end
     lastSapAlertAt = now
 
     local shortName = sourceName and tostring(sourceName):match("^([^%-]+)")
@@ -216,17 +222,23 @@ end
 sapCommFrame:RegisterEvent("CHAT_MSG_ADDON")
 sapCommFrame:SetScript("OnEvent", function(_, _, prefix, message, channel, sender)
     if prefix ~= SAP_COMM_PREFIX or not IsSapAlertEnabled() then return end
-    if type(message) ~= "string" then return end
+    if channel ~= "PARTY" and channel ~= "RAID" then return end
+    if type(message) ~= "string" or type(sender) ~= "string" then return end
 
-    local kind, playerName = message:match("^([^|]+)|?(.*)$")
+    local kind = message:match("^([^|]+)|?(.*)$")
     if kind ~= "SAPPED" then return end
 
-    local myName, myRealm = UnitFullName and UnitFullName("player")
-    local fullSelf = myName
-    if myName and myRealm and myRealm ~= "" then fullSelf = myName.."-"..myRealm end
-    if sender and fullSelf and sender == fullSelf then return end
-
-    ShowRemoteSapAlert(playerName ~= "" and playerName or sender)
+    local myName, myRealm
+    if UnitFullName then myName, myRealm = UnitFullName("player") end
+    myName = myName or UnitName("player")
+    myRealm = myRealm or (GetRealmName and GetRealmName())
+    local fullSelf = myName and myRealm and (myName.."-"..myRealm:gsub("%s", ""))
+    if sender == myName or sender == fullSelf then return end
+    local now = GetTime()
+    if recentRemoteSapAlerts[sender] and now-recentRemoteSapAlerts[sender] < 2 then return end
+    recentRemoteSapAlerts[sender] = now
+    -- The transport sender is the sapped party member; keep that identity.
+    ShowRemoteSapAlert(sender)
 end)
 
 local function PanicPlayerLevel()
@@ -671,7 +683,13 @@ local function BuildRecordStats()
     local history = DailyHistory()
     local eventCount = history and tonumber(history.eventCount) or 0
 
-    if recordStatsCache.stats and recordStatsCache.eventCount == eventCount then
+    local now = DailyNow()
+    local currentWeekStart = WeeklyResetStart(now)
+    local lastEventTime = history and tonumber(history.lastEventTime) or 0
+    if recordStatsCache.stats and recordStatsCache.eventCount == eventCount
+        and recordStatsCache.history == history
+        and recordStatsCache.lastEventTime == lastEventTime
+        and recordStatsCache.weekStart == currentWeekStart then
         return recordStatsCache.stats, true
     end
 
@@ -696,8 +714,6 @@ local function BuildRecordStats()
     end
     stats.repeats = math.max(0, stats.total - stats.marks)
 
-    local now = DailyNow()
-    local currentWeekStart = WeeklyResetStart(now)
     local WEEK = 7 * 86400
     local events = TaliaaGankRepository:GetEventsInRange(1, now + 60)
     local weeklyCounts = {}
@@ -733,6 +749,9 @@ local function BuildRecordStats()
     end
 
     recordStatsCache.eventCount = eventCount
+    recordStatsCache.history = history
+    recordStatsCache.lastEventTime = lastEventTime
+    recordStatsCache.weekStart = currentWeekStart
     recordStatsCache.stats = stats
     return stats, true
 end
@@ -2971,8 +2990,7 @@ function GT:RecordKill(playerName, playerGUID, shouldAnnounce)
     if not playerName or playerName == "" then return end
     if IgnoreBattlegroundStats() then return end
 
-    -- These Feign tables are declared later in the file. RecordKill can be called
-    -- by Spy before that section has initialized, so never index them unless ready.
+    -- Authoritative kill credit overrides stale Feign state for this death.
     local confirmedAt = 0
     if playerGUID and recentConfirmedPlayerKills then
         confirmedAt = tonumber(recentConfirmedPlayerKills[playerGUID]) or 0
@@ -3020,8 +3038,8 @@ function GT:RecordKill(playerName, playerGUID, shouldAnnounce)
     else
         dedupeKey = "N:" .. NormalizedPlayerName(playerName)
     end
-    local lastEvent = self.recentKillEvents[dedupeKey] or 0
-    if now - lastEvent < 6 then
+    local lastEvent = self.recentKillEvents[dedupeKey]
+    if lastEvent and now - lastEvent < 6 then
         return
     end
     self.recentKillEvents[dedupeKey] = now
@@ -3155,6 +3173,8 @@ function GT:RecordKill(playerName, playerGUID, shouldAnnounce)
 end
 
 function GT:OnHistoryUpdated(playerName, playerGUID, historicalKills)
+    recordStatsCache.stats = nil
+    weeklyStatsCache.stats = nil
     SyncVoidMarkLifetimeRecord(playerName, playerGUID, historicalKills)
     -- Repository updates here are remote/sync updates; local GT:RecordKill uses
     -- the incremental path above. Never rescan thousands of rows in combat.
@@ -3468,7 +3488,7 @@ divider:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -140)
 divider:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -140)
 divider:SetHeight(1)
 
-local lastLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+lastLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 lastLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -148)
 lastLabel:SetText("LAST MARK")
 lastLabel:SetTextColor(0.56, 0.48, 0.63, 1)
@@ -3858,7 +3878,7 @@ pairButton:SetScript("OnClick", function()
     end
 end)
 
-local syncButton = MakeFlatButton(optionsFrame, "SYNC NOW", 86, 21)
+syncButton = MakeFlatButton(optionsFrame, "SYNC NOW", 86, 21)
 syncButton:SetPoint("LEFT", pairButton, "RIGHT", 6, 0)
 syncButton:SetScript("OnClick", function()
     if TaliaaGankRepository and TaliaaGankRepository.SyncNow then
@@ -4267,7 +4287,6 @@ combatMonitor:SetScript("OnUpdate", function(_, elapsed)
 end)
 
 local lastHostilePlayer = nil
-local recentOutgoingVictims = {}
 local recentOutgoingHunterPets = {}
 local hunterPetGUIDCache = {}
 local combatPlayerGUID = UnitGUID("player")
@@ -4323,7 +4342,7 @@ local function NormalizeFeignName(name)
     return string.lower(base)
 end
 
-local function IsUnitCurrentlyFeigningName(name)
+IsUnitCurrentlyFeigningName = function(name)
     if not name or not UnitIsFeignDeath then return false end
     local function check(unit)
         if not UnitExists or not UnitExists(unit) then return false end
@@ -4347,8 +4366,6 @@ function GT:IsUnitCurrentlyFeigningName(name)
 end
 
 local IsKnownHunter
-local recentConfirmedPlayerKills = {}
-
 function GT:ShouldSuppressHunterUnitDied(name, guid)
     if not IsKnownHunter(name, guid) then return false end
     local confirmedAt = guid and tonumber(recentConfirmedPlayerKills[guid]) or 0
@@ -4368,9 +4385,11 @@ IsKnownHunter = function(name, guid)
     end
     return tostring(class or ""):upper() == "HUNTER"
 end
-GT.IsKnownHunter = IsKnownHunter
+function GT:IsKnownHunter(name, guid)
+    return IsKnownHunter(name, guid)
+end
 
-local function MarkHunterFeign(guid, name)
+MarkHunterFeign = function(guid, name)
     -- If a kill sound raced ahead of Classic's Feign classification, stop it
     -- immediately when Feign is confirmed.
     if VoidMarkKillEffects and VoidMarkKillEffects.StopActiveSound then
@@ -4870,7 +4889,37 @@ end)
 
 UpdateDisplay()
 
+local lastTransientCleanup = 0
+local function PruneTransientCombatState(now)
+    if now-lastTransientCleanup < 30 then return end
+    lastTransientCleanup = now
+    local function PruneTimes(tbl, age)
+        for key, stamp in pairs(tbl) do
+            if now-stamp > age then tbl[key]=nil end
+        end
+    end
+    PruneTimes(GT.recentKillEvents, 30)
+    PruneTimes(GT.recentHunterPetKills, 30)
+    PruneTimes(recentConfirmedPlayerKills, 30)
+    PruneTimes(recentFeign, 30)
+    PruneTimes(recentFeignByName, 30)
+    PruneTimes(recentRemoteSapAlerts, 30)
+    for guid, victim in pairs(recentOutgoingVictims) do
+        if now-(victim.t or 0) > 30 then recentOutgoingVictims[guid]=nil end
+    end
+    for guid, pet in pairs(recentOutgoingHunterPets) do
+        if now-(pet.t or 0) > 30 then recentOutgoingHunterPets[guid]=nil end
+    end
+    for guid in pairs(hunterPetGUIDCache) do
+        if not recentOutgoingHunterPets[guid] then hunterPetGUIDCache[guid]=nil end
+    end
+end
+
 local refreshTicker = C_Timer.NewTicker(1, function()
+    -- Run cache maintenance outside combat, even with all windows closed.
+    if not (InCombatLockdown and InCombatLockdown()) then
+        PruneTransientCombatState(GetTime())
+    end
     if RestorePanicVisibility then
         RestorePanicVisibility()
     end
