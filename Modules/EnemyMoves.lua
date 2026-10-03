@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.0.4"
+local VERSION = "1.0.5"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 20, 2
 local HEADER_H, STATUS_H = 40, 22
@@ -545,6 +545,14 @@ local function IsHostilePlayer(flags)
        and bit.band(flags,COMBATLOG_OBJECT_REACTION_HOSTILE or 0x00000040)~=0
 end
 
+local function SamePlayerName(a,b)
+    if not a or not b then return false end
+    if a==b then return true end
+    local as=a:match("^([^%-]+)")
+    local bs=b:match("^([^%-]+)")
+    return as and bs and as==bs
+end
+
 local eventFrame=CreateFrame("Frame")
 eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
@@ -611,7 +619,12 @@ eventFrame:SetScript("OnEvent",function(_,event,...)
     if not sourceGUID then return end
 
     local ownerGUID,ownerName,ownerClass
-    if IsHostilePlayer(sourceFlags) or (duelGUID and sourceGUID==duelGUID) then
+    if IsHostilePlayer(sourceFlags)
+        or (duelGUID and sourceGUID==duelGUID)
+        or (duelName and SamePlayerName(sourceName,duelName)) then
+        if duelName and SamePlayerName(sourceName,duelName) and not duelGUID then
+            duelGUID=sourceGUID
+        end
         ownerGUID,ownerName,ownerClass=sourceGUID,sourceName,ClassFromGUID(sourceGUID)
     elseif petOwner[sourceGUID] then
         ownerGUID=petOwner[sourceGUID]
