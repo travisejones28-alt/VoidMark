@@ -263,6 +263,16 @@ local function BuildGearMenu(self, level)
             TaliaaGankTracker:TogglePanicEnabled()
         end
     end)
+
+    local sapAlertEnabled = TaliaaGankTracker
+        and TaliaaGankTracker.IsSapAlertEnabled
+        and TaliaaGankTracker:IsSapAlertEnabled()
+
+    Add(sapAlertEnabled and "Sap Alert: ON" or "Sap Alert: OFF", function()
+        if TaliaaGankTracker and TaliaaGankTracker.ToggleSapAlertEnabled then
+            TaliaaGankTracker:ToggleSapAlertEnabled()
+        end
+    end)
     Add("Taunt", function()
         if VoidMarkTaunt and VoidMarkTaunt.Toggle then VoidMarkTaunt.Toggle() end
     end)
