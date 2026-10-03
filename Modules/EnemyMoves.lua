@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.1.3"
+local VERSION = "1.1.4"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
 local HEADER_H, STATUS_H = 60, 22
@@ -362,8 +362,10 @@ local function BuildUI()
     frame.Banner:SetPoint("TOPRIGHT",-4,-4)
     frame.Banner:SetHeight(HEADER_H-5)
     frame.Banner:SetTexture("Interface\\AddOns\\VoidMark\\Textures\\VoidMarkGeneratedHeader.tga")
-    frame.Banner:SetTexCoord(0,1,0,1)
-    frame.Banner:SetAlpha(0.82)
+    -- Preserve the original VoidMark banner proportions in this shorter panel
+    -- by center-cropping vertically instead of squashing the full texture.
+    frame.Banner:SetTexCoord(0,1,0.16,0.84)
+    frame.Banner:SetAlpha(0.92)
 
     -- Dark lower band keeps module text readable while leaving the banner art
     -- visible above and behind it.
