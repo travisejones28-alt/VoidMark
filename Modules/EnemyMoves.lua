@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.2.2"
+local VERSION = "1.2.3"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
 local HEADER_H, STATUS_H = 63, 22
@@ -26,8 +26,7 @@ local C = {
 
 local SPELLS, CANON = {}, {}
 local enemies, petOwner = {}, {}
-local targetGUID, pinnedGUID, hoverGUID, duelGUID, duelName, frame, options, ticker
-local IsStillTrackedByVoidMark
+local targetGUID, hoverGUID, duelGUID, duelName, frame, options, ticker
 local testMode, testGUID = false, "VOIDMARK-ENEMYMOVES-TEST"
 
 local function Now() return GetTime() end
@@ -519,8 +518,7 @@ end
 local function CurrentEnemy()
     if testMode then return enemies[testGUID] end
     if hoverGUID and enemies[hoverGUID] then return enemies[hoverGUID] end
-    if targetGUID and enemies[targetGUID] then return enemies[targetGUID] end
-    return pinnedGUID and enemies[pinnedGUID] or nil
+    return targetGUID and enemies[targetGUID] or nil
 end
 local function Remaining(s,def,now)
     -- Enemy Moves answers "when can they use it again?".
@@ -566,8 +564,6 @@ local function UpdateTarget()
     targetGUID=nil
     if UnitExists("target") and UnitIsPlayer("target") and UnitCanAttack("player","target") then
         targetGUID=UnitGUID("target")
-        pinnedGUID=targetGUID
-        hoverGUID=nil
         local name,realm=UnitName("target")
         if realm and realm~="" then name=name.."-"..realm end
         local _,class=UnitClass("target")
@@ -582,15 +578,6 @@ function EM:Refresh()
     if not db.enabled then frame:Hide() return end
     local e=CurrentEnemy()
     if not e then frame:Hide() return end
-
-    -- A pinned enemy may survive target loss/Vanish, but only while VoidMark
-    -- itself still considers that player part of the nearby tracker.
-    if not hoverGUID and pinnedGUID and e.guid==pinnedGUID and not IsStillTrackedByVoidMark(e) then
-        if targetGUID==pinnedGUID then targetGUID=nil end
-        pinnedGUID=nil
-        frame:Hide()
-        return
-    end
 
     local cc=RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
     if cc then frame.Target:SetText(string.format("%s  •  |cff%02x%02x%02x%s|r",e.name or "Unknown",cc.r*255,cc.g*255,cc.b*255,e.class or ""))
@@ -711,24 +698,19 @@ local function FindEnemyByName(name,guid)
     return nil,nil
 end
 
-IsStillTrackedByVoidMark = function(e)
-    if not e or not e.name then return false end
-    if not Spy or type(Spy.NearbyList)~="table" then return true end
-    if Spy.NearbyList[e.name] then return true end
-    local short=tostring(e.name):match("^([^%-]+)") or tostring(e.name)
-    for name in pairs(Spy.NearbyList) do
-        local nshort=tostring(name):match("^([^%-]+)") or tostring(name)
-        if nshort==short then return true end
-    end
-    return false
-end
 
 function EM:HoverPlayer(name,guid)
     if not DB().enabled or testMode then return false end
     local g,e=FindEnemyByName(name,guid)
-    if not g or not e then return false end
+    if not g or not e then
+        if hoverGUID then hoverGUID=nil EM:Refresh() end
+        return false
+    end
     local rows=BuildRows(e,Now())
-    if #rows==0 then return false end
+    if #rows==0 then
+        if hoverGUID then hoverGUID=nil EM:Refresh() end
+        return false
+    end
     hoverGUID=g
     EM:Refresh()
     return true
