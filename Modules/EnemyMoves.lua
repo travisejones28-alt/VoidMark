@@ -3,10 +3,10 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.1.9"
+local VERSION = "1.2.0"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
-local HEADER_H, STATUS_H = 43, 22
+local HEADER_H, STATUS_H = 79, 22
 local FRAME_W = 286
 
 local C = {
@@ -360,13 +360,13 @@ local function BuildUI()
     frame.Banner=frame:CreateTexture(nil,"BACKGROUND",nil,1)
     frame.Banner:SetPoint("TOPLEFT",4,-4)
     frame.Banner:SetPoint("TOPRIGHT",-4,-4)
-    frame.Banner:SetHeight(38)
+    frame.Banner:SetHeight(74)
     frame.Banner:SetTexture("Interface\\AddOns\\VoidMark\\Textures\\VoidMarkGeneratedHeader.tga")
-    -- Use the compact VOIDMARK/logo portion of the existing banner artwork.
-    -- This lets the whole Enemy Moves panel be narrower without squeezing the
-    -- full-size composition into a tiny header.
-    frame.Banner:SetTexCoord(0.00,0.60,0.00,1.00)
-    frame.Banner:SetAlpha(0.94)
+    -- Match the user-provided compact logo crop: keep the full vertical image
+    -- and center-crop only the side artwork. At 286px frame width this preserves
+    -- the logo/tagline proportions instead of stretching or cutting the wordmark.
+    frame.Banner:SetTexCoord(0.145,0.855,0.00,1.00)
+    frame.Banner:SetAlpha(0.96)
 
     -- Dark lower band keeps module text readable while leaving the banner art
     -- visible above and behind it.
@@ -419,13 +419,13 @@ local function BuildUI()
         SetColor(self.Text,C.purple)
     end)
 
-    frame.Target=frame:CreateFontString(nil,"OVERLAY","GameFontNormal")
-    frame.Target:SetPoint("BOTTOMLEFT",frame.Banner,"BOTTOMLEFT",8,2)
-    frame.Target:SetPoint("RIGHT",frame.Banner,"RIGHT",-68,0)
+    frame.Target=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+    frame.Target:SetPoint("LEFT",frame.StatusBG,"LEFT",6,0)
+    frame.Target:SetWidth(104)
     frame.Target:SetJustifyH("LEFT")
     frame.Target:SetShadowOffset(1,-1)
     frame.Target:SetShadowColor(0,0,0,1)
-    frame.Target:SetText("No hostile player targeted")
+    frame.Target:SetText("No target")
     SetColor(frame.Target,C.white)
 
     frame.StatusBG=frame:CreateTexture(nil,"ARTWORK")
@@ -442,8 +442,10 @@ local function BuildUI()
     frame.StatusTop:SetTexture("Interface\\Buttons\\WHITE8X8")
     frame.StatusTop:SetVertexColor(C.purple[1],C.purple[2],C.purple[3],0.42)
 
-    frame.Status=frame:CreateFontString(nil,"OVERLAY","GameFontNormal")
-    frame.Status:SetPoint("CENTER",frame.StatusBG,"CENTER",0,0)
+    frame.Status=frame:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+    frame.Status:SetPoint("LEFT",frame.Target,"RIGHT",4,0)
+    frame.Status:SetPoint("RIGHT",frame.StatusBG,"RIGHT",-6,0)
+    frame.Status:SetJustifyH("RIGHT")
     frame.Status:SetShadowOffset(1,-1)
     frame.Status:SetShadowColor(0,0,0,1)
     frame.Status:SetText("WAITING")
