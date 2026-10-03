@@ -1,3 +1,8 @@
+## 1.0.6
+- Tightened Enemy Moves cooldown accuracy for talented Frost Nova, Earth Shock, and Lay on Hands.
+- Grounding Totem now tracks only its recast timer instead of implying the totem is still active.
+- Replaced the overly confident "ALL TRACKED MOVES READY" state with "NO OBSERVED COOLDOWNS" when VoidMark has not observed a current cooldown.
+
 ## 1.0.5
 - Enemy Moves now always displays time until the ability can be used again; ACTIVE is only a separate state marker.
 - Added conservative PvP cooldown values for talented Rogue, Warrior Intercept, Paladin Hammer of Justice, and Blessing of Protection cases.
