@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.0.6"
+local VERSION = "1.0.7"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 20, 2
 local HEADER_H, STATUS_H = 40, 22
@@ -18,7 +18,7 @@ local C = {
 
 local SPELLS, CANON = {}, {}
 local enemies, petOwner = {}, {}
-local targetGUID, duelGUID, duelName, frame, options, ticker
+local targetGUID, pinnedGUID, hoverGUID, duelGUID, duelName, frame, options, ticker
 local testMode, testGUID = false, "VOIDMARK-ENEMYMOVES-TEST"
 
 local function Now() return GetTime() end
@@ -44,6 +44,13 @@ local function ShortTime(sec)
     if sec>=60 then return string.format("%d:%02d",math.floor(sec/60),math.floor(sec%60)) end
     if sec<10 then return string.format("%.1f",sec) end
     return tostring(math.ceil(sec))
+end
+
+local function ActiveTime(sec)
+    sec=math.max(0,tonumber(sec) or 0)
+    if sec>=60 then return ShortTime(sec) end
+    if sec<10 then return string.format("%.1fs",sec) end
+    return string.format("%ds",math.ceil(sec))
 end
 
 local function AddSpell(ids,key,name,cd,active,category,color,opts)
@@ -390,7 +397,9 @@ end
 
 local function CurrentEnemy()
     if testMode then return enemies[testGUID] end
-    return targetGUID and enemies[targetGUID] or nil
+    if hoverGUID and enemies[hoverGUID] then return enemies[hoverGUID] end
+    if targetGUID and enemies[targetGUID] then return enemies[targetGUID] end
+    return pinnedGUID and enemies[pinnedGUID] or nil
 end
 local function Remaining(s,def,now)
     -- Enemy Moves answers "when can they use it again?".
@@ -436,6 +445,8 @@ local function UpdateTarget()
     targetGUID=nil
     if UnitExists("target") and UnitIsPlayer("target") and UnitCanAttack("player","target") then
         targetGUID=UnitGUID("target")
+        pinnedGUID=targetGUID
+        hoverGUID=nil
         local name,realm=UnitName("target")
         if realm and realm~="" then name=name.."-"..realm end
         local _,class=UnitClass("target")
@@ -459,7 +470,7 @@ function EM:Refresh()
     if #list==0 then
         frame.Status:SetText("NO OBSERVED COOLDOWNS") SetColor(frame.Status,C.dim) frame.StatusBG:SetVertexColor(0.09,0.04,0.12,0.90)
     elseif list[1].active then
-        frame.Status:SetText("ACTIVE: "..list[1].def.name)
+        frame.Status:SetText(string.format("ACTIVE: %s (%s)",list[1].def.name,ActiveTime(list[1].activeRemain or 0)))
         local c=list[1].def.category=="defensive" and C.red or C.orange
         SetColor(frame.Status,c) frame.StatusBG:SetVertexColor(c[1]*0.25,c[2]*0.25,c[3]*0.25,0.95)
     else
@@ -481,7 +492,7 @@ function EM:Refresh()
             elseif def.key=="POTION" then row.Icon:SetTexture("Interface\\Icons\\INV_Potion_54")
             else row.Icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark") end
             if item.active then
-                row.Label:SetText(string.format("%s |cffff4d5dACTIVE|r |cffffa64d(%s)|r",def.name,ShortTime(item.activeRemain or 0)))
+                row.Label:SetText(string.format("%s |cffff4d5dACTIVE|r |cffffa64d(%s)|r",def.name,ActiveTime(item.activeRemain or 0)))
             else
                 row.Label:SetText(def.name)
             end
@@ -550,6 +561,35 @@ function EM:ToggleOptions()
     if f:IsShown() then f:Hide() else f:Show() end
 end
 function EM:SetEnabled(v) DB().enabled=v and true or false EM:Refresh() end
+
+local function FindEnemyByName(name,guid)
+    if guid and enemies[guid] then return guid,enemies[guid] end
+    if not name then return nil,nil end
+    local short=tostring(name):match("^([^%-]+)") or tostring(name)
+    for g,e in pairs(enemies) do
+        local en=e and e.name
+        local es=en and (tostring(en):match("^([^%-]+)") or tostring(en))
+        if en==name or es==short then return g,e end
+    end
+    return nil,nil
+end
+
+function EM:HoverPlayer(name,guid)
+    if not DB().enabled or testMode then return false end
+    local g,e=FindEnemyByName(name,guid)
+    if not g or not e then return false end
+    local rows=BuildRows(e,Now())
+    if #rows==0 then return false end
+    hoverGUID=g
+    EM:Refresh()
+    return true
+end
+
+function EM:ClearHover()
+    if not hoverGUID then return end
+    hoverGUID=nil
+    EM:Refresh()
+end
 
 local function IsHostilePlayer(flags)
     if not flags or not bit or not bit.band then return false end
