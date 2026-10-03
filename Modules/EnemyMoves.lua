@@ -171,6 +171,21 @@ local POTION_EFFECT_IDS={
     [2379]=true,  -- Swiftness / Speed
     [17540]=true, -- Greater Stoneshield
 
+    -- Mana potion item effects (combat log name is usually "Restore Mana")
+    [437]=true,   -- Lesser Mana Potion
+    [438]=true,   -- Mana Potion
+    [2023]=true,  -- Greater Mana Potion
+    [17530]=true, -- Superior Mana Potion
+    [17531]=true, -- Major Mana Potion
+    [21395]=true, -- Major Combat Mana Potion / BG variant
+
+    -- Healing potion item effects
+    [439]=true,   -- Minor Healing Potion
+    [440]=true,   -- Lesser Healing Potion
+    [2024]=true,  -- Greater Healing Potion
+    [4042]=true,  -- Superior Healing Potion
+    [17534]=true, -- Major Healing Potion
+
     -- Protection potion absorb effects
     [7237]=true,[7239]=true,[17544]=true, -- Frost
     [7230]=true,[17543]=true,             -- Fire
@@ -552,7 +567,13 @@ eventFrame:SetScript("OnEvent",function(_,event)
     local def=SPELLS[spellID]
     if def and def.pet and not petOwner[sourceGUID] and not IsHostilePlayer(sourceFlags) then return end
     local tracked=TrackSpell(ownerGUID,ownerName,ownerClass,spellID,spellName,subevent)
-    if DB().debug and tracked then DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffb45cff[EnemyMoves]|r %s used %s (%s)",ownerName or "?",spellName or "?",tostring(spellID))) end
+    if DB().debug and tracked then
+        DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffb45cff[EnemyMoves]|r %s used %s (%s)",ownerName or "?",spellName or "?",tostring(spellID)))
+    elseif DB().debug and IsHostilePlayer(sourceFlags)
+        and (subevent=="SPELL_HEAL" or subevent=="SPELL_ENERGIZE")
+        and sourceGUID==destGUID then
+        DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffb45cff[EnemyMoves RAW]|r %s %s (%s)",subevent,spellName or "?",tostring(spellID)))
+    end
     if ownerGUID==targetGUID or testMode then EM:Refresh() end
 end)
 
