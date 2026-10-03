@@ -158,7 +158,7 @@ local function ShowSapAlert(sourceName)
 
     local shortName = sourceName and tostring(sourceName):match("^([^%-]+)")
     local personalMsg = shortName and ("SAPPED  •  "..shortName) or "SAPPED"
-    local groupMsg = shortName and ("SAPPED BY "..shortName) or "SAPPED"
+    local groupMsg = shortName and ("{rt8} SAPPED BY "..shortName.." {rt8}") or "{rt8} SAPPED {rt8}"
 
     -- Personal visual warning only; no audio alert.
     if RaidNotice_AddMessage and RaidWarningFrame then
