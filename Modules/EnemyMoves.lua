@@ -375,6 +375,10 @@ local function BuildUI()
         row:Hide()
     end
 
+    frame.OptionsButton:SetScript("OnClick",function()
+        EM:ToggleOptions()
+    end)
+
     RestorePosition()
     frame:Hide()
 end
@@ -515,8 +519,14 @@ end
 function EM:Toggle()
     BuildUI()
     local db=DB()
-    if frame:IsShown() then frame:Hide()
-    else db.enabled=true UpdateTarget() EM:Refresh() end
+    if frame:IsShown() then
+        db.enabled=false
+        frame:Hide()
+    else
+        db.enabled=true
+        UpdateTarget()
+        EM:Refresh()
+    end
 end
 function EM:ToggleOptions()
     local f=EnsureOptions()
