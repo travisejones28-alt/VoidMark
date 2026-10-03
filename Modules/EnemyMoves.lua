@@ -842,6 +842,69 @@ local function SamePlayerName(a,b)
     local bs=b:match("^([^%-]+)")
     return as and bs and as==bs
 end
+local SHARE_PREFIX="VMEM1"
+local recentShares={}
+
+local function RegisterSharePrefix()
+    if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then
+        pcall(C_ChatInfo.RegisterAddonMessagePrefix,SHARE_PREFIX)
+    elseif RegisterAddonMessagePrefix then
+        pcall(RegisterAddonMessagePrefix,SHARE_PREFIX)
+    end
+end
+
+local function SendShareMessage(msg,channel)
+    if C_ChatInfo and C_ChatInfo.SendAddonMessage then
+        return pcall(C_ChatInfo.SendAddonMessage,SHARE_PREFIX,msg,channel)
+    elseif SendAddonMessage then
+        return pcall(SendAddonMessage,SHARE_PREFIX,msg,channel)
+    end
+end
+
+local function ShareChannel()
+    if IsInRaid and IsInRaid() then return "RAID" end
+    if IsInGroup and IsInGroup() then return "PARTY" end
+    return nil
+end
+
+local function BroadcastTracked(ownerGUID,ownerName,ownerClass,spellID,event)
+    local channel=ShareChannel()
+    if not channel or not ownerGUID or not spellID or not event then return end
+
+    local key=table.concat({tostring(ownerGUID),tostring(spellID),tostring(event)},"|")
+    local now=Now()
+    if recentShares[key] and now-recentShares[key]<0.15 then return end
+    recentShares[key]=now
+
+    local msg=table.concat({
+        tostring(ownerGUID),
+        tostring(ownerName or ""),
+        tostring(ownerClass or ""),
+        tostring(spellID),
+        tostring(event),
+    },"~")
+    SendShareMessage(msg,channel)
+end
+
+local function ReceiveTrackedMessage(message)
+    if type(message)~="string" then return end
+    local guid,name,class,spellID,event=message:match("^([^~]+)~([^~]*)~([^~]*)~([^~]+)~([^~]+)$")
+    spellID=tonumber(spellID)
+    if not guid or not spellID or not event then return end
+    if not SPELLS[spellID] then return end
+    if event~="SPELL_CAST_SUCCESS"
+        and event~="SPELL_AURA_APPLIED"
+        and event~="SPELL_AURA_REFRESH"
+        and event~="SPELL_AURA_REMOVED" then
+        return
+    end
+
+    local tracked=TrackSpell(guid,name~="" and name or nil,class~="" and class or nil,spellID,nil,event)
+    if tracked and (guid==targetGUID or guid==hoverGUID or guid==vanishedGUID or testMode) then
+        EM:Refresh()
+    end
+end
+
 
 local eventFrame=CreateFrame("Frame")
 eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
@@ -850,6 +913,7 @@ eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("DUEL_REQUESTED")
 eventFrame:RegisterEvent("DUEL_INBOUNDS")
 eventFrame:RegisterEvent("DUEL_FINISHED")
+eventFrame:RegisterEvent("CHAT_MSG_ADDON")
 eventFrame:SetScript("OnEvent",function(_,event,...)
     if event=="PLAYER_TARGET_CHANGED" then
         testMode=false
@@ -867,9 +931,17 @@ eventFrame:SetScript("OnEvent",function(_,event,...)
         return
     end
     if event=="PLAYER_ENTERING_WORLD" then
+        RegisterSharePrefix()
         BuildUI()
         UpdateTarget()
         EM:Refresh()
+        return
+    end
+    if event=="CHAT_MSG_ADDON" then
+        local prefix,message,channel=...
+        if prefix==SHARE_PREFIX and (channel=="PARTY" or channel=="RAID") then
+            ReceiveTrackedMessage(message)
+        end
         return
     end
     if event=="DUEL_REQUESTED" then
@@ -935,6 +1007,9 @@ eventFrame:SetScript("OnEvent",function(_,event,...)
     if def and def.pet and not petOwner[sourceGUID] and not IsHostilePlayer(sourceFlags) then return end
     local wasCurrentTarget = targetGUID and ownerGUID==targetGUID
     local tracked=TrackSpell(ownerGUID,ownerName,ownerClass,spellID,spellName,subevent)
+    if tracked then
+        BroadcastTracked(ownerGUID,ownerName,ownerClass,spellID,subevent)
+    end
 
     -- Only Rogues get a post-target-loss grace period, and only when we
     -- actually observe that Rogue Vanish while they are the active target.
