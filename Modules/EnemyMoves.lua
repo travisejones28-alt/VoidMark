@@ -273,8 +273,12 @@ local function TrackSpell(ownerGUID,ownerName,ownerClass,spellID,spellName,event
     if def.reset and event=="SPELL_CAST_SUCCESS" then
         StartCooldown(e,def,spellID) ApplyReset(e,def) return true
     end
-    if def.key=="POTION" and event=="SPELL_CAST_SUCCESS" then
-        StartCooldown(e,def,spellID) return true
+    -- Any recognized potion-use event consumes the shared potion slot.
+    -- Mana/healing potions commonly appear as SPELL_ENERGIZE/SPELL_HEAL,
+    -- while protection/FAP/LIP-style pots often appear as aura applications.
+    if def.key=="POTION" and POTION_EVENTS[event] then
+        StartCooldown(e,def,spellID)
+        return true
     end
     if event=="SPELL_CAST_SUCCESS" then
         StartCooldown(e,def,spellID)
