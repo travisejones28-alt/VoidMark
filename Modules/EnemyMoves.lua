@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.1.2"
+local VERSION = "1.1.3"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
 local HEADER_H, STATUS_H = 60, 22
@@ -372,14 +372,14 @@ local function BuildUI()
     frame.HeaderTextBG:SetPoint("BOTTOMRIGHT",frame.Banner,"BOTTOMRIGHT",0,0)
     frame.HeaderTextBG:SetHeight(25)
     frame.HeaderTextBG:SetTexture("Interface\\Buttons\\WHITE8X8")
-    frame.HeaderTextBG:SetVertexColor(0.010,0.005,0.017,0.88)
+    frame.HeaderTextBG:SetVertexColor(0,0,0,0)
 
     frame.HeaderLine=frame:CreateTexture(nil,"ARTWORK",nil,1)
     frame.HeaderLine:SetPoint("BOTTOMLEFT",frame.Banner,"BOTTOMLEFT",0,0)
     frame.HeaderLine:SetPoint("BOTTOMRIGHT",frame.Banner,"BOTTOMRIGHT",0,0)
     frame.HeaderLine:SetHeight(1)
     frame.HeaderLine:SetTexture("Interface\\Buttons\\WHITE8X8")
-    frame.HeaderLine:SetVertexColor(C.purple[1],C.purple[2],C.purple[3],0.78)
+    frame.HeaderLine:SetVertexColor(0,0,0,0)
 
     frame:SetScript("OnDragStart",function(self) if not DB().locked then self:StartMoving() end end)
     frame:SetScript("OnDragStop",function(self) self:StopMovingOrSizing() SavePosition() end)
@@ -417,8 +417,8 @@ local function BuildUI()
     end)
 
     frame.Target=frame:CreateFontString(nil,"OVERLAY","GameFontNormal")
-    frame.Target:SetPoint("LEFT",frame.HeaderTextBG,"LEFT",10,0)
-    frame.Target:SetPoint("RIGHT",frame.HeaderTextBG,"RIGHT",-10,0)
+    frame.Target:SetPoint("BOTTOMLEFT",frame.Banner,"BOTTOMLEFT",12,7)
+    frame.Target:SetPoint("RIGHT",frame.Banner,"RIGHT",-70,0)
     frame.Target:SetJustifyH("LEFT")
     frame.Target:SetShadowOffset(1,-1)
     frame.Target:SetShadowColor(0,0,0,1)
