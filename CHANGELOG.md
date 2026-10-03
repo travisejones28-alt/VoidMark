@@ -1,3 +1,9 @@
+## 1.2.9
+- Panic button now stays visible for 60 seconds after being enabled.
+- After that grace period, Panic is only shown while the VoidMark/Spy Nearby list contains at least one player.
+- Panic automatically reappears when Nearby becomes non-empty and hides again when Nearby becomes empty.
+- Disabling Panic still hides it immediately.
+
 ## 1.2.8
 - Cleaned up Enemy Moves target/status row spacing.
 - Shortened the idle status to NO COOLDOWNS.
