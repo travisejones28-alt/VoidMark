@@ -420,7 +420,6 @@ local function BuildUI()
     end)
 
     frame.Target=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
-    frame.Target:SetPoint("LEFT",frame.StatusBG,"LEFT",6,0)
     frame.Target:SetWidth(104)
     frame.Target:SetJustifyH("LEFT")
     frame.Target:SetShadowOffset(1,-1)
@@ -434,6 +433,8 @@ local function BuildUI()
     frame.StatusBG:SetHeight(STATUS_H)
     frame.StatusBG:SetTexture("Interface\\Buttons\\WHITE8X8")
     frame.StatusBG:SetVertexColor(0.12,0.04,0.16,0.94)
+
+    frame.Target:SetPoint("LEFT",frame.StatusBG,"LEFT",6,0)
 
     frame.StatusTop=frame:CreateTexture(nil,"OVERLAY")
     frame.StatusTop:SetPoint("TOPLEFT",frame.StatusBG,"TOPLEFT")
