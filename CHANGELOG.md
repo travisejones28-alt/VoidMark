@@ -1,3 +1,9 @@
+## 1.3.4
+- Removed the large local Sap visual and sound from the player who is actually Sapped.
+- Sap still broadcasts the skull-marked Party/Raid chat callout.
+- VoidMark now sends a hidden group addon message so other group members running VoidMark receive a large SAPPED • PlayerName visual warning plus a warning sound.
+- Remote VoidMark clients do not send an additional chat message, preventing duplicates.
+
 ## 1.3.3
 - Removed the visible Enemy Moves version text from the banner.
 - Sap Alert no longer plays an audio warning.
