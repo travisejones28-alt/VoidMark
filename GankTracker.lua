@@ -1,5 +1,5 @@
 -- TaliaaSpy Gank Tracker
--- Panic Circle/Banner repush: 2026-10-02
+-- Panic main-menu toggle: 2026-10-02
 local GANKTRACKER_BUILD = "2026-09-28 PET-DAILY-CLEAN-FOOTER"
 -- Daily combined kill tracker + reload-safe local session + global historical repository.
 -- Daily victim announcement count fix build: 2026-08-25
@@ -3662,7 +3662,6 @@ SectionTitle("REPORT", -78)
 HelpText("REPORT sends the tab you are looking at: TODAY, WEEK, or RECORDS.", -96)
 
 MakeVoidMarkCheckbox("levelBreakdown", "LEVEL BREAKDOWN", 16, -123)
-MakeVoidMarkCheckbox("showPanic", "SHOW PANIC", 184, -123)
 
 local panicStyleLabel = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 panicStyleLabel:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", 16, -154)
@@ -3827,9 +3826,6 @@ local function RefreshSimpleOptions()
     if simpleButtons.levelBreakdown and simpleButtons.levelBreakdown.SetChecked then
         simpleButtons.levelBreakdown:SetChecked(report.reportStyle == "levels")
     end
-    if simpleButtons.showPanic and simpleButtons.showPanic.SetChecked then
-        simpleButtons.showPanic:SetChecked(SpyDB and SpyDB.VoidMarkShowPanicButton == true)
-    end
     if GT.PanicStyleDropdown then
         UIDropDownMenu_SetText(GT.PanicStyleDropdown, PANIC_STYLE_NAMES[GetPanicStyle()])
     end
@@ -3853,15 +3849,18 @@ simpleButtons.levelBreakdown:SetScript("OnClick", function(self)
     RefreshSimpleOptions()
 end)
 
-simpleButtons.showPanic:SetScript("OnClick", function(self)
-    local enabled = self:GetChecked() and true or false
+function GT:IsPanicEnabled()
+    return SpyDB and SpyDB.VoidMarkShowPanicButton == true
+end
+
+function GT:SetPanicEnabled(enabled)
+    enabled = enabled and true or false
     if SpyDB then
         SpyDB.VoidMarkShowPanicButton = enabled
     end
 
     if enabled then
-        -- Keep Panic visible for one minute after the user enables it so they
-        -- can position/test it even if the Nearby list is currently empty.
+        -- One-minute grace so the user can position/test Panic with no nearby enemy.
         GT._panicVisibleUntil = GetTime() + 60
     else
         GT._panicVisibleUntil = nil
@@ -3874,7 +3873,12 @@ simpleButtons.showPanic:SetScript("OnClick", function(self)
     end
 
     RefreshSimpleOptions()
-end)
+end
+
+function GT:TogglePanicEnabled()
+    self:SetPanicEnabled(not self:IsPanicEnabled())
+    return self:IsPanicEnabled()
+end
 
 for _, key in ipairs({"party", "guild", "whisper", "say"}) do
     simpleButtons[key]:SetScript("OnClick", function(self)
