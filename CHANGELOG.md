@@ -1,3 +1,9 @@
+## 1.1.0
+- Reworked Enemy Moves into a more polished VoidMark-style panel without changing tracking behavior.
+- Added a darker black-violet shell, brighter purple accent line, stronger border treatment, improved title/header spacing, and hover styling on the OPT button.
+- Rebuilt cooldown rows with flat cleaner bars, category accent strips, framed icons, subtle sheen, stronger timer contrast, and improved text spacing.
+- Active rows now visually drain using the active-effect duration while the right-side number continues to show recast cooldown.
+
 ## 1.0.9
 - Enemy Moves now hides and clears a pinned enemy as soon as that player drops out of VoidMark's Nearby tracker.
 - Vanish/target loss still keeps the panel pinned while the enemy remains tracked by VoidMark.
