@@ -3,10 +3,10 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.1.4"
+local VERSION = "1.1.5"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
-local HEADER_H, STATUS_H = 60, 22
+local HEADER_H, STATUS_H = 66, 22
 local FRAME_W = 336
 
 local C = {
@@ -360,25 +360,25 @@ local function BuildUI()
     frame.Banner=frame:CreateTexture(nil,"BACKGROUND",nil,1)
     frame.Banner:SetPoint("TOPLEFT",4,-4)
     frame.Banner:SetPoint("TOPRIGHT",-4,-4)
-    frame.Banner:SetHeight(HEADER_H-5)
+    frame.Banner:SetHeight(42)
     frame.Banner:SetTexture("Interface\\AddOns\\VoidMark\\Textures\\VoidMarkGeneratedHeader.tga")
-    -- Preserve the original VoidMark banner proportions in this shorter panel
-    -- by center-cropping vertically instead of squashing the full texture.
-    frame.Banner:SetTexCoord(0,1,0.16,0.84)
-    frame.Banner:SetAlpha(0.92)
+    -- Use only the logo-heavy upper/middle portion of the artwork. This keeps
+    -- the banner compact without vertically squeezing the full composition.
+    frame.Banner:SetTexCoord(0,1,0.08,0.58)
+    frame.Banner:SetAlpha(0.88)
 
     -- Dark lower band keeps module text readable while leaving the banner art
     -- visible above and behind it.
     frame.HeaderTextBG=frame:CreateTexture(nil,"BACKGROUND",nil,2)
-    frame.HeaderTextBG:SetPoint("BOTTOMLEFT",frame.Banner,"BOTTOMLEFT",0,0)
-    frame.HeaderTextBG:SetPoint("BOTTOMRIGHT",frame.Banner,"BOTTOMRIGHT",0,0)
-    frame.HeaderTextBG:SetHeight(25)
+    frame.HeaderTextBG:SetPoint("TOPLEFT",frame.Banner,"BOTTOMLEFT",0,-1)
+    frame.HeaderTextBG:SetPoint("TOPRIGHT",frame.Banner,"BOTTOMRIGHT",0,-1)
+    frame.HeaderTextBG:SetHeight(19)
     frame.HeaderTextBG:SetTexture("Interface\\Buttons\\WHITE8X8")
     frame.HeaderTextBG:SetVertexColor(0,0,0,0)
 
     frame.HeaderLine=frame:CreateTexture(nil,"ARTWORK",nil,1)
-    frame.HeaderLine:SetPoint("BOTTOMLEFT",frame.Banner,"BOTTOMLEFT",0,0)
-    frame.HeaderLine:SetPoint("BOTTOMRIGHT",frame.Banner,"BOTTOMRIGHT",0,0)
+    frame.HeaderLine:SetPoint("BOTTOMLEFT",frame.HeaderTextBG,"BOTTOMLEFT",0,0)
+    frame.HeaderLine:SetPoint("BOTTOMRIGHT",frame.HeaderTextBG,"BOTTOMRIGHT",0,0)
     frame.HeaderLine:SetHeight(1)
     frame.HeaderLine:SetTexture("Interface\\Buttons\\WHITE8X8")
     frame.HeaderLine:SetVertexColor(0,0,0,0)
@@ -391,7 +391,7 @@ local function BuildUI()
     frame.Title:Hide()
 
     frame.Version=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
-    frame.Version:SetPoint("TOPRIGHT",-49,-12)
+    frame.Version:SetPoint("TOPRIGHT",-49,-9)
     frame.Version:SetText("v"..VERSION)
     frame.Version:SetShadowOffset(1,-1)
     frame.Version:SetShadowColor(0,0,0,1)
@@ -399,7 +399,7 @@ local function BuildUI()
 
     frame.OptionsButton=CreateFrame("Button",nil,frame,"BackdropTemplate")
     frame.OptionsButton:SetSize(38,18)
-    frame.OptionsButton:SetPoint("TOPRIGHT",-7,-9)
+    frame.OptionsButton:SetPoint("TOPRIGHT",-7,-6)
     frame.OptionsButton:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=6})
     frame.OptionsButton:SetBackdropColor(0.045,0.020,0.070,0.98)
     frame.OptionsButton:SetBackdropBorderColor(0.48,0.15,0.76,1)
@@ -419,8 +419,8 @@ local function BuildUI()
     end)
 
     frame.Target=frame:CreateFontString(nil,"OVERLAY","GameFontNormal")
-    frame.Target:SetPoint("BOTTOMLEFT",frame.Banner,"BOTTOMLEFT",12,7)
-    frame.Target:SetPoint("RIGHT",frame.Banner,"RIGHT",-70,0)
+    frame.Target:SetPoint("LEFT",frame.HeaderTextBG,"LEFT",10,0)
+    frame.Target:SetPoint("RIGHT",frame.HeaderTextBG,"RIGHT",-10,0)
     frame.Target:SetJustifyH("LEFT")
     frame.Target:SetShadowOffset(1,-1)
     frame.Target:SetShadowColor(0,0,0,1)
