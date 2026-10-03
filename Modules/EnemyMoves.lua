@@ -3,11 +3,11 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.1.8"
+local VERSION = "1.1.9"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
-local HEADER_H, STATUS_H = 55, 22
-local FRAME_W = 336
+local HEADER_H, STATUS_H = 43, 22
+local FRAME_W = 286
 
 local C = {
     bg={0.010,0.006,0.018,0.985},
@@ -360,14 +360,13 @@ local function BuildUI()
     frame.Banner=frame:CreateTexture(nil,"BACKGROUND",nil,1)
     frame.Banner:SetPoint("TOPLEFT",4,-4)
     frame.Banner:SetPoint("TOPRIGHT",-4,-4)
-    frame.Banner:SetHeight(50)
+    frame.Banner:SetHeight(38)
     frame.Banner:SetTexture("Interface\\AddOns\\VoidMark\\Textures\\VoidMarkGeneratedHeader.tga")
-    -- Use only the logo-heavy upper/middle portion of the artwork. This keeps
-    -- the banner compact without vertically squeezing the full composition.
-    -- Preserve the entire banner vertically. Trim only a little from the
-    -- left/right edges so none of the logo/signature artwork is cut off.
-    frame.Banner:SetTexCoord(0.04,0.96,0,1)
-    frame.Banner:SetAlpha(0.88)
+    -- Use the compact VOIDMARK/logo portion of the existing banner artwork.
+    -- This lets the whole Enemy Moves panel be narrower without squeezing the
+    -- full-size composition into a tiny header.
+    frame.Banner:SetTexCoord(0.00,0.60,0.00,1.00)
+    frame.Banner:SetAlpha(0.94)
 
     -- Dark lower band keeps module text readable while leaving the banner art
     -- visible above and behind it.
@@ -393,7 +392,7 @@ local function BuildUI()
     frame.Title:Hide()
 
     frame.Version=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
-    frame.Version:SetPoint("TOPRIGHT",-49,-9)
+    frame.Version:SetPoint("TOPRIGHT",-47,-7)
     frame.Version:SetText("v"..VERSION)
     frame.Version:SetShadowOffset(1,-1)
     frame.Version:SetShadowColor(0,0,0,1)
@@ -401,7 +400,7 @@ local function BuildUI()
 
     frame.OptionsButton=CreateFrame("Button",nil,frame,"BackdropTemplate")
     frame.OptionsButton:SetSize(38,18)
-    frame.OptionsButton:SetPoint("TOPRIGHT",-7,-6)
+    frame.OptionsButton:SetPoint("TOPRIGHT",-6,-5)
     frame.OptionsButton:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=6})
     frame.OptionsButton:SetBackdropColor(0.045,0.020,0.070,0.98)
     frame.OptionsButton:SetBackdropBorderColor(0.48,0.15,0.76,1)
@@ -421,8 +420,8 @@ local function BuildUI()
     end)
 
     frame.Target=frame:CreateFontString(nil,"OVERLAY","GameFontNormal")
-    frame.Target:SetPoint("BOTTOMLEFT",frame.Banner,"BOTTOMLEFT",8,3)
-    frame.Target:SetPoint("RIGHT",frame.Banner,"RIGHT",-76,0)
+    frame.Target:SetPoint("BOTTOMLEFT",frame.Banner,"BOTTOMLEFT",8,2)
+    frame.Target:SetPoint("RIGHT",frame.Banner,"RIGHT",-68,0)
     frame.Target:SetJustifyH("LEFT")
     frame.Target:SetShadowOffset(1,-1)
     frame.Target:SetShadowColor(0,0,0,1)
