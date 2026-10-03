@@ -1,3 +1,8 @@
+## 1.2.6
+- Gear menu now shows Enemy Moves: ON / OFF.
+- Clicking the item persistently enables or disables Enemy Moves instead of merely showing or hiding the current panel.
+- Re-enabling immediately resumes current-target tracking.
+
 ## 1.2.5
 - Enemy Moves now hides immediately when the hostile target is lost.
 - Exception: if the current target is a Rogue and VoidMark observes Vanish while that Rogue remains in the Nearby list, the panel stays on that Rogue for up to 30 seconds.
