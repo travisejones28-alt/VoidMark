@@ -3,10 +3,10 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.2.1"
+local VERSION = "1.2.2"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
-local HEADER_H, STATUS_H = 71, 22
+local HEADER_H, STATUS_H = 63, 22
 local FRAME_W = 270
 
 local C = {
@@ -360,12 +360,13 @@ local function BuildUI()
     frame.Banner=frame:CreateTexture(nil,"BACKGROUND",nil,1)
     frame.Banner:SetPoint("TOPLEFT",4,-4)
     frame.Banner:SetPoint("TOPRIGHT",-4,-4)
-    frame.Banner:SetHeight(66)
-    -- Dedicated texture converted directly from the user-provided reference
-    -- image: VOIDMARK + FIND • TRACK • GANK only. No old banner crop.
-    frame.Banner:SetTexture("Interface\\AddOns\\VoidMark\\Textures\\EnemyMovesHeader.tga")
-    frame.Banner:SetTexCoord(0,1,0,1)
-    frame.Banner:SetAlpha(1.0)
+    frame.Banner:SetHeight(58)
+    -- Use the original high-resolution VoidMark banner and crop to the compact
+    -- VOIDMARK + FIND • TRACK • GANK section. This stays sharper than scaling
+    -- the smaller dedicated reference texture.
+    frame.Banner:SetTexture("Interface\\AddOns\\VoidMark\\Textures\\VoidMarkGeneratedHeader.tga")
+    frame.Banner:SetTexCoord(0.06,0.74,0.00,1.00)
+    frame.Banner:SetAlpha(0.98)
 
     -- Dark lower band keeps module text readable while leaving the banner art
     -- visible above and behind it.
