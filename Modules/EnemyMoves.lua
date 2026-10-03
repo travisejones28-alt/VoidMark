@@ -57,7 +57,7 @@ end
 
 -- Rogue
 AddSpell({1766},"KICK","Kick",10,0,"control","orange",{class="ROGUE",priority=10})
-AddSpell({408},"KIDNEY_SHOT","Kidney Shot",20,0,"control","orange",{class="ROGUE",priority=11})
+AddSpell({408,8643},"KIDNEY_SHOT","Kidney Shot",20,0,"control","orange",{class="ROGUE",priority=11})
 AddSpell({2094},"BLIND","Blind",300,0,"control","orange",{class="ROGUE",priority=12})
 AddSpell({1776,1777,8629,11285,11286},"GOUGE","Gouge",10,0,"control","orange",{class="ROGUE",priority=13})
 AddSpell({1856,1857},"VANISH","Vanish",300,0,"mobility","purple",{class="ROGUE",priority=20})
@@ -560,14 +560,9 @@ eventFrame:SetScript("OnEvent",function(_,event)
         if n and r and r~="" then n=n.."-"..r end
         ownerName=n or sourceName
         ownerClass=select(2,UnitClass("target")) or ClassFromGUID(sourceGUID)
-    elseif targetGUID and destGUID==targetGUID and SPELLS[spellID] then
-        -- Defensive aura fallback for current target; catches bubble/BOP when source flags are odd.
-        ownerGUID=destGUID
-        local n,r=UnitName("target")
-        if n and r and r~="" then n=n.."-"..r end
-        ownerName=n or destName
-        ownerClass=select(2,UnitClass("target")) or ClassFromGUID(destGUID)
-    else return end
+    else
+        return
+    end
 
     local def=SPELLS[spellID]
     if def and def.pet and not petOwner[sourceGUID] and not IsHostilePlayer(sourceFlags) then return end
