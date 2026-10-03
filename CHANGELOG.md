@@ -1,3 +1,10 @@
+## 1.1.2
+- Simplified Enemy Moves banner header by removing the redundant ENEMY MOVES title.
+- Reduced banner/header height and tightened spacing.
+- Target/class is now the sole header label over the VoidMark banner.
+- Lowered version/OPT slightly for cleaner alignment.
+- Cooldown row visuals and tracking behavior are unchanged.
+
 ## 1.1.1
 - Enemy Moves now uses VoidMark's own generated banner artwork across the header.
 - Module title and target/class are overlaid on a dark translucent lower band for readability.
