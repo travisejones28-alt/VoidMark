@@ -3,10 +3,10 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.1.5"
+local VERSION = "1.1.6"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
-local HEADER_H, STATUS_H = 66, 22
+local HEADER_H, STATUS_H = 47, 22
 local FRAME_W = 336
 
 local C = {
@@ -370,9 +370,9 @@ local function BuildUI()
     -- Dark lower band keeps module text readable while leaving the banner art
     -- visible above and behind it.
     frame.HeaderTextBG=frame:CreateTexture(nil,"BACKGROUND",nil,2)
-    frame.HeaderTextBG:SetPoint("TOPLEFT",frame.Banner,"BOTTOMLEFT",0,-1)
-    frame.HeaderTextBG:SetPoint("TOPRIGHT",frame.Banner,"BOTTOMRIGHT",0,-1)
-    frame.HeaderTextBG:SetHeight(19)
+    frame.HeaderTextBG:SetPoint("BOTTOMLEFT",frame.Banner,"BOTTOMLEFT",0,0)
+    frame.HeaderTextBG:SetPoint("BOTTOMRIGHT",frame.Banner,"BOTTOMRIGHT",0,0)
+    frame.HeaderTextBG:SetHeight(1)
     frame.HeaderTextBG:SetTexture("Interface\\Buttons\\WHITE8X8")
     frame.HeaderTextBG:SetVertexColor(0,0,0,0)
 
@@ -419,8 +419,8 @@ local function BuildUI()
     end)
 
     frame.Target=frame:CreateFontString(nil,"OVERLAY","GameFontNormal")
-    frame.Target:SetPoint("LEFT",frame.HeaderTextBG,"LEFT",10,0)
-    frame.Target:SetPoint("RIGHT",frame.HeaderTextBG,"RIGHT",-10,0)
+    frame.Target:SetPoint("BOTTOMLEFT",frame.Banner,"BOTTOMLEFT",10,5)
+    frame.Target:SetPoint("RIGHT",frame.Banner,"RIGHT",-70,0)
     frame.Target:SetJustifyH("LEFT")
     frame.Target:SetShadowOffset(1,-1)
     frame.Target:SetShadowColor(0,0,0,1)
