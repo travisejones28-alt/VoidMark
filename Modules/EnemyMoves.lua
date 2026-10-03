@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.0.0"
+local VERSION = "1.0.1"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 20, 2
 local HEADER_H, STATUS_H = 40, 22
@@ -58,12 +58,12 @@ end
 -- Rogue
 AddSpell({1766},"KICK","Kick",10,0,"control","orange",{class="ROGUE",priority=10})
 AddSpell({408,8643},"KIDNEY_SHOT","Kidney Shot",20,0,"control","orange",{class="ROGUE",priority=11})
-AddSpell({2094},"BLIND","Blind",300,0,"control","orange",{class="ROGUE",priority=12})
+AddSpell({2094},"BLIND","Blind",210,0,"control","orange",{class="ROGUE",priority=12})
 AddSpell({1776,1777,8629,11285,11286},"GOUGE","Gouge",10,0,"control","orange",{class="ROGUE",priority=13})
-AddSpell({1856,1857},"VANISH","Vanish",300,0,"mobility","purple",{class="ROGUE",priority=20})
-AddSpell({5277},"EVASION","Evasion",300,15,"defensive","red",{class="ROGUE",priority=3})
-AddSpell({2983,8696,11305},"SPRINT","Sprint",300,15,"mobility","purple",{class="ROGUE",priority=21})
-AddSpell({14185},"PREPARATION","Preparation",600,0,"utility","blue",{class="ROGUE",priority=30,reset={"VANISH","BLIND","SPRINT","EVASION"}})
+AddSpell({1856,1857},"VANISH","Vanish",210,0,"mobility","purple",{class="ROGUE",priority=20})
+AddSpell({5277},"EVASION","Evasion",210,15,"defensive","red",{class="ROGUE",priority=3})
+AddSpell({2983,8696,11305},"SPRINT","Sprint",210,15,"mobility","purple",{class="ROGUE",priority=21})
+AddSpell({14185},"PREPARATION","Preparation",600,0,"utility","blue",{class="ROGUE",priority=30,reset={"KICK","KIDNEY_SHOT","GOUGE","VANISH","BLIND","SPRINT","EVASION"}})
 
 -- Mage
 AddSpell({2139},"COUNTERSPELL","Counterspell",30,0,"control","orange",{class="MAGE",priority=10})
@@ -79,7 +79,7 @@ AddSpell({11129},"COMBUSTION","Combustion",180,0,"offensive","blue",{class="MAGE
 -- Warrior
 AddSpell({6552,6554},"PUMMEL","Pummel",10,0,"control","orange",{class="WARRIOR",priority=10})
 AddSpell({72,1671,1672},"SHIELD_BASH","Shield Bash",12,0,"control","orange",{class="WARRIOR",priority=11})
-AddSpell({20252,20616,20617},"INTERCEPT","Intercept",20,0,"mobility","purple",{class="WARRIOR",priority=20})
+AddSpell({20252,20616,20617},"INTERCEPT","Intercept",10,0,"mobility","purple",{class="WARRIOR",priority=20})
 AddSpell({5246},"INTIMIDATING_SHOUT","Intimidating Shout",180,0,"control","orange",{class="WARRIOR",priority=12})
 AddSpell({18499},"BERSERKER_RAGE","Berserker Rage",30,0,"utility","gray",{class="WARRIOR",priority=31})
 AddSpell({676},"DISARM","Disarm",60,0,"control","orange",{class="WARRIOR",priority=13})
@@ -120,8 +120,8 @@ AddSpell({22812},"BARKSKIN","Barkskin",60,15,"defensive","red",{class="DRUID",pr
 -- Paladin. Track both full bubble and lower-rank Divine Protection variants.
 AddSpell({642,1020},"DIVINE_SHIELD","Divine Shield",300,12,"defensive","red",{class="PALADIN",priority=1})
 AddSpell({498,5573},"DIVINE_PROTECTION","Divine Protection",300,8,"defensive","red",{class="PALADIN",priority=2})
-AddSpell({1022,5599,10278},"BLESSING_PROTECTION","Blessing of Protection",300,10,"defensive","red",{class="PALADIN",priority=3})
-AddSpell({853,5588,5589,10308},"HAMMER_JUSTICE","Hammer of Justice",45,0,"control","orange",{class="PALADIN",priority=10})
+AddSpell({1022,5599,10278},"BLESSING_PROTECTION","Blessing of Protection",180,10,"defensive","red",{class="PALADIN",priority=3})
+AddSpell({853,5588,5589,10308},"HAMMER_JUSTICE","Hammer of Justice",30,0,"control","orange",{class="PALADIN",priority=10})
 AddSpell({633,2800,10310},"LAY_ON_HANDS","Lay on Hands",3600,0,"defensive","red",{class="PALADIN",priority=4})
 AddSpell({20216},"DIVINE_FAVOR","Divine Favor",120,20,"offensive","blue",{class="PALADIN",priority=40})
 
@@ -384,9 +384,12 @@ local function CurrentEnemy()
     return targetGUID and enemies[targetGUID] or nil
 end
 local function Remaining(s,def,now)
+    -- Enemy Moves answers "when can they use it again?".
+    -- Keep ACTIVE as a separate state marker, but always display the recast
+    -- cooldown rather than replacing it with the remaining buff duration.
     local active=s.activeEnd and s.activeEnd>now
-    if active then return s.activeEnd-now,true end
-    return math.max(0,(s.cooldownEnd or 0)-now),false
+    local cooldownRemain=math.max(0,(s.cooldownEnd or 0)-now)
+    return cooldownRemain,active
 end
 local function BuildRows(e,now)
     local list={}
