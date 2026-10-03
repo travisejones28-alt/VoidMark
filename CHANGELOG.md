@@ -1,3 +1,9 @@
+## 1.2.3
+- Enemy Moves now follows the current hostile player target by default.
+- Hovering a player in the VoidMark list temporarily overrides the panel only when that player has at least one live tracked cooldown.
+- Hovering a player with no tracked cooldowns leaves the panel on the current target.
+- Removed stale pinned/last-enemy fallback behavior.
+
 ## 1.2.2
 - Switched Enemy Moves back to the original high-resolution VoidMarkGeneratedHeader.tga for a sharper header.
 - Cropped the original banner to the compact VOIDMARK + FIND • TRACK • GANK section.
