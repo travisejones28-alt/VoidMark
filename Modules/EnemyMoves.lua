@@ -136,28 +136,72 @@ AddSpell({23132},"SHADOW_REFLECTOR","Shadow Reflector",300,5,"defensive","red",{
 
 local TRINKET_NAMES={["Insignia of the Alliance"]=true,["Insignia of the Horde"]=true,["PvP Trinket"]=true}
 local POTION_EFFECT_NAMES={
-    ["Free Action"]=true,["Living Action"]=true,["Limited Invulnerability"]=true,
-    ["Restoration"]=true,["Restorative Potion"]=true,
+    -- PvP / control
+    ["Free Action"]=true,
+    ["Living Free Action"]=true,
+    ["Invulnerability"]=true,
+    ["Speed"]=true,
+    ["Invisibility"]=true,
+    ["Restoration"]=true,
+    ["Restorative Potion"]=true,
+
+    -- Defensive / resistance
+    ["Greater Stoneshield"]=true,
+    ["Stoneshield"]=true,
+    ["Magic Resistance"]=true,
+    ["Frost Protection"]=true,
+    ["Fire Protection"]=true,
+    ["Shadow Protection"]=true,
+    ["Nature Protection"]=true,
+    ["Arcane Protection"]=true,
+
+    -- Rage / offensive potion effects
+    ["Mighty Rage"]=true,
+    ["Great Rage"]=true,
+    ["Rage"]=true,
 }
--- Protection potions commonly surface in Classic's combat log as the applied
--- absorb aura, not as a SPELL_CAST_SUCCESS event whose name contains "Potion".
--- Treat these item-effect aura IDs as a potion use and start the shared 2m timer.
+
+-- Known Classic item-effect spell IDs whose visible combat-log name does not
+-- necessarily contain the word "Potion". These all consume the normal potion
+-- cooldown when produced by the corresponding potion item.
 local POTION_EFFECT_IDS={
-    [7237]=true,[7239]=true,[17544]=true, -- Frost Protection ranks / Greater
-    [7230]=true,[17543]=true,             -- Fire Protection / Greater
-    [7241]=true,[7242]=true,[17548]=true, -- Shadow Protection ranks / Greater
-    [7254]=true,[17546]=true,             -- Nature Protection / Greater
-    [17549]=true,                         -- Arcane Protection
+    [6615]=true,  -- Free Action
+    [24364]=true, -- Living Free Action
+    [3169]=true,  -- Limited Invulnerability
+    [2379]=true,  -- Swiftness / Speed
+    [17540]=true, -- Greater Stoneshield
+
+    -- Protection potion absorb effects
+    [7237]=true,[7239]=true,[17544]=true, -- Frost
+    [7230]=true,[17543]=true,             -- Fire
+    [7241]=true,[7242]=true,[17548]=true, -- Shadow
+    [7254]=true,[17546]=true,             -- Nature
+    [17549]=true,                         -- Arcane
 }
+
 local POTION_DEF={key="POTION",name="Potion",cd=120,active=0,category="utility",color="gray",priority=24}
 CANON.POTION=POTION_DEF
 
+local POTION_EVENTS={
+    SPELL_CAST_SUCCESS=true,
+    SPELL_AURA_APPLIED=true,
+    SPELL_AURA_REFRESH=true,
+    SPELL_HEAL=true,
+    SPELL_ENERGIZE=true,
+}
+
 local function IsPotionUse(spellID,spellName,subevent)
-    if POTION_EFFECT_IDS[spellID] and (subevent=="SPELL_AURA_APPLIED" or subevent=="SPELL_AURA_REFRESH" or subevent=="SPELL_CAST_SUCCESS") then
+    if not POTION_EVENTS[subevent] then return false end
+
+    if POTION_EFFECT_IDS[spellID] then
         return true
     end
-    if subevent~="SPELL_CAST_SUCCESS" or type(spellName)~="string" then return false end
-    if spellName:lower():find("potion",1,true) then return true end
+
+    if type(spellName)~="string" or spellName=="" then return false end
+    if spellName:lower():find("potion",1,true) then
+        return true
+    end
+
     return POTION_EFFECT_NAMES[spellName] and true or false
 end
 
@@ -472,7 +516,14 @@ eventFrame:SetScript("OnEvent",function(_,event)
     if event=="PLAYER_ENTERING_WORLD" then BuildUI() UpdateTarget() EM:Refresh() return end
 
     local _,subevent,_,sourceGUID,sourceName,sourceFlags,_,destGUID,destName,_,_,spellID,spellName=CombatLogGetCurrentEventInfo()
-    if subevent~="SPELL_CAST_SUCCESS" and subevent~="SPELL_AURA_APPLIED" and subevent~="SPELL_AURA_REFRESH" and subevent~="SPELL_AURA_REMOVED" then return end
+    if subevent~="SPELL_CAST_SUCCESS"
+        and subevent~="SPELL_AURA_APPLIED"
+        and subevent~="SPELL_AURA_REFRESH"
+        and subevent~="SPELL_AURA_REMOVED"
+        and subevent~="SPELL_HEAL"
+        and subevent~="SPELL_ENERGIZE" then
+        return
+    end
     if not sourceGUID then return end
 
     local ownerGUID,ownerName,ownerClass
