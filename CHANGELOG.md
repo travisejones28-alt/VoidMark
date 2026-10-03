@@ -1,3 +1,9 @@
+## 1.1.1
+- Enemy Moves now uses VoidMark's own generated banner artwork across the header.
+- Module title and target/class are overlaid on a dark translucent lower band for readability.
+- Version and OPT controls remain in the upper-right over the banner.
+- Cooldown tracking and pin/hover behavior are unchanged.
+
 ## 1.1.0
 - Reworked Enemy Moves into a more polished VoidMark-style panel without changing tracking behavior.
 - Added a darker black-violet shell, brighter purple accent line, stronger border treatment, improved title/header spacing, and hover styling on the OPT button.
