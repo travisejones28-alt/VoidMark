@@ -65,7 +65,8 @@ local function AddSpell(ids,key,name,cd,active,category,color,opts)
     opts=opts or {}
     local d={key=key,name=name,cd=cd or 0,active=active or 0,category=category or "utility",
         color=color or "purple",class=opts.class,pet=opts.pet and true or false,
-        reset=opts.reset,priority=opts.priority or 50}
+        reset=opts.reset,priority=opts.priority or 50,activeByID=opts.activeByID,
+        sharedLockout=opts.sharedLockout}
     CANON[key]=d
     for _,id in ipairs(ids) do SPELLS[id]=d end
 end
@@ -132,10 +133,25 @@ AddSpell({29166},"INNERVATE","Innervate",360,20,"utility","blue",{class="DRUID",
 AddSpell({1850,9821},"DASH","Dash",300,15,"mobility","purple",{class="DRUID",priority=20})
 AddSpell({22812},"BARKSKIN","Barkskin",60,15,"defensive","red",{class="DRUID",priority=3})
 
--- Paladin. Track both full bubble and lower-rank Divine Protection variants.
-AddSpell({642,1020},"DIVINE_SHIELD","Divine Shield",300,12,"defensive","red",{class="PALADIN",priority=1})
-AddSpell({498,5573},"DIVINE_PROTECTION","Divine Protection",300,8,"defensive","red",{class="PALADIN",priority=2})
-AddSpell({1022,5599,10278},"BLESSING_PROTECTION","Blessing of Protection",180,10,"defensive","red",{class="PALADIN",priority=3})
+-- Paladin. Bubble ranks have different active durations in Classic Era.
+-- Divine Shield, Divine Protection and Blessing of Protection also impose the
+-- same 60s invulnerability lockout (Forbearance), so using one temporarily
+-- blocks the other two even when their own cooldowns are otherwise ready.
+AddSpell({642,1020},"DIVINE_SHIELD","Divine Shield",300,12,"defensive","red",{
+    class="PALADIN",priority=1,
+    activeByID={[642]=10,[1020]=12},
+    sharedLockout={"DIVINE_PROTECTION","BLESSING_PROTECTION"},
+})
+AddSpell({498,5573},"DIVINE_PROTECTION","Divine Protection",300,8,"defensive","red",{
+    class="PALADIN",priority=2,
+    activeByID={[498]=6,[5573]=8},
+    sharedLockout={"DIVINE_SHIELD","BLESSING_PROTECTION"},
+})
+AddSpell({1022,5599,10278},"BLESSING_PROTECTION","Blessing of Protection",180,10,"defensive","red",{
+    class="PALADIN",priority=3,
+    activeByID={[1022]=6,[5599]=8,[10278]=10},
+    sharedLockout={"DIVINE_SHIELD","DIVINE_PROTECTION"},
+})
 AddSpell({853,5588,5589,10308},"HAMMER_JUSTICE","Hammer of Justice",30,0,"control","orange",{class="PALADIN",priority=10})
 AddSpell({633,2800,10310},"LAY_ON_HANDS","Lay on Hands",2400,0,"defensive","red",{class="PALADIN",priority=4})
 AddSpell({20216},"DIVINE_FAVOR","Divine Favor",120,20,"offensive","blue",{class="PALADIN",priority=40})
@@ -258,6 +274,28 @@ local function LearnTargetPet()
         end
     end
 end
+local function ActiveDuration(def,spellID)
+    if def and def.activeByID and spellID and def.activeByID[spellID] then
+        return tonumber(def.activeByID[spellID]) or 0
+    end
+    return tonumber(def and def.active) or 0
+end
+
+local function ApplySharedLockout(e,def,now)
+    if not e or not def or not def.sharedLockout then return end
+    now=now or Now()
+    for _,key in ipairs(def.sharedLockout) do
+        local other=CANON[key]
+        if other then
+            local s=e.spells[key] or {}
+            e.spells[key]=s
+            s.key,s.name=other.key,other.name
+            s.cooldownEnd=math.max(tonumber(s.cooldownEnd) or 0,now+60)
+            s.sharedLockoutEnd=math.max(tonumber(s.sharedLockoutEnd) or 0,now+60)
+        end
+    end
+end
+
 local function StartCooldown(e,def,spellID)
     if not e or not def then return end
     local now=Now()
@@ -265,9 +303,13 @@ local function StartCooldown(e,def,spellID)
     e.spells[def.key]=s
     s.key,s.name,s.usedAt=def.key,def.name,now
     s.cooldownEnd=now+(def.cd or 0)
-    s.activeEnd=(def.active and def.active>0) and (now+def.active) or nil
+    local duration=ActiveDuration(def,spellID)
+    s.activeDuration=duration
+    s.activeEnd=duration>0 and (now+duration) or nil
     s.lastSpellID=spellID or s.lastSpellID
+    s.sharedLockoutEnd=nil
     e.seen[def.key]=true
+    ApplySharedLockout(e,def,now)
 end
 local function ApplyReset(e,def)
     if not e or not def or not def.reset then return end
@@ -306,7 +348,11 @@ local function TrackSpell(ownerGUID,ownerName,ownerClass,spellID,spellName,event
             StartCooldown(e,def,spellID)
             s=e.spells[def.key]
         end
-        if def.active and def.active>0 then s.activeEnd=Now()+def.active end
+        local duration=ActiveDuration(def,spellID)
+        if duration>0 then
+            s.activeDuration=duration
+            s.activeEnd=Now()+duration
+        end
     elseif event=="SPELL_AURA_REMOVED" then
         local s=e.spells[def.key]
         if s then s.activeEnd=nil end
@@ -643,7 +689,8 @@ function EM:Refresh()
         if item then
             local def,s=item.def,item.state
             local c=ColorFor(def,item.active)
-            local total=item.active and math.max(def.active or 1,1) or math.max(def.cd or 1,1)
+            local total=item.active and math.max((item.state and item.state.activeDuration) or def.active or 1,1)
+                or math.max(((item.state and item.state.sharedLockoutEnd) and item.remain<=60.1) and 60 or (def.cd or 1),1)
             local barValue=item.active and math.max(0,item.activeRemain or 0) or item.remain
             row:SetMinMaxValues(0,total)
             row:SetValue(math.min(total,barValue))
