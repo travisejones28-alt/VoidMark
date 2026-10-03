@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.2.8"
+local VERSION = "1.3.3"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
 local HEADER_H, STATUS_H = 63, 22
@@ -393,11 +393,8 @@ local function BuildUI()
     frame.Title:Hide()
 
     frame.Version=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
-    frame.Version:SetPoint("TOPRIGHT",-47,-7)
-    frame.Version:SetText("v"..VERSION)
-    frame.Version:SetShadowOffset(1,-1)
-    frame.Version:SetShadowColor(0,0,0,1)
-    SetColor(frame.Version,C.white)
+    frame.Version:SetText("")
+    frame.Version:Hide()
 
     frame.OptionsButton=CreateFrame("Button",nil,frame,"BackdropTemplate")
     frame.OptionsButton:SetSize(38,18)
