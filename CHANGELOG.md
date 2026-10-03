@@ -1,3 +1,9 @@
+## 1.1.5
+- Reworked Enemy Moves header into a compact branded layout.
+- VoidMark art is now a short logo strip instead of dominating the panel.
+- Target/class moved to a separate clean text line beneath the banner with no background bar.
+- Version and OPT controls were repositioned for the shorter header.
+
 ## 1.1.4
 - Fixed the Enemy Moves VoidMark banner looking vertically squashed.
 - Banner now uses a centered vertical crop so the original artwork keeps its proportions inside the compact header.
