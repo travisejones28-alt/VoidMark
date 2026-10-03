@@ -1,3 +1,9 @@
+## 1.3.3
+- Removed the visible Enemy Moves version text from the banner.
+- Sap Alert no longer plays an audio warning.
+- Sap Alert now broadcasts SAPPED to RAID when in a raid, PARTY when in a party, and stays silent in chat when solo.
+- Personal on-screen Sap warning remains enabled when Sap Alert is ON.
+
 ## 1.3.2
 - Added a personal Sap safety alert that fires only when Sap lands on the player.
 - Alert is on-screen only with a raid-warning sound; no chat message is sent.
