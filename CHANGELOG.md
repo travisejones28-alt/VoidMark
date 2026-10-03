@@ -1,3 +1,8 @@
+## 1.1.6
+- Removed the separate target-name spacer row beneath the Enemy Moves banner.
+- Target/class now sits directly on the lower-left of the VoidMark banner.
+- Status strip now starts immediately below the banner for a tighter layout.
+
 ## 1.1.5
 - Reworked Enemy Moves header into a compact branded layout.
 - VoidMark art is now a short logo strip instead of dominating the panel.
