@@ -1,3 +1,8 @@
+## 1.1.4
+- Fixed the Enemy Moves VoidMark banner looking vertically squashed.
+- Banner now uses a centered vertical crop so the original artwork keeps its proportions inside the compact header.
+- Slightly increased banner opacity for cleaner logo detail.
+
 ## 1.1.3
 - Removed the dark Enemy Moves header bar.
 - Target/class text now floats directly over the VoidMark banner.
