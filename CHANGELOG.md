@@ -1,3 +1,8 @@
+## 1.1.8
+- Restored the full Enemy Moves VoidMark banner artwork top-to-bottom.
+- Removed the vertical crop that was hiding the lower half of the image.
+- Banner now trims only slightly from the left/right edges and has more vertical room to avoid squashing.
+
 ## 1.1.6
 - Removed the separate target-name spacer row beneath the Enemy Moves banner.
 - Target/class now sits directly on the lower-left of the VoidMark banner.
