@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.2.4"
+local VERSION = "1.2.5"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
 local HEADER_H, STATUS_H = 63, 22
@@ -26,7 +26,7 @@ local C = {
 
 local SPELLS, CANON = {}, {}
 local enemies, petOwner = {}, {}
-local targetGUID, hoverGUID, duelGUID, duelName, frame, options, ticker
+local targetGUID, hoverGUID, vanishedGUID, vanishUntil, duelGUID, duelName, frame, options, ticker
 local testMode, testGUID = false, "VOIDMARK-ENEMYMOVES-TEST"
 
 local function Now() return GetTime() end
@@ -517,10 +517,28 @@ local function BuildUI()
     frame:Hide()
 end
 
+local function IsOnNearbyList(e)
+    if not e or not e.name or not Spy or type(Spy.NearbyList)~="table" then return false end
+    if Spy.NearbyList[e.name] then return true end
+    local short=tostring(e.name):match("^([^%-]+)") or tostring(e.name)
+    for name in pairs(Spy.NearbyList) do
+        local nshort=tostring(name):match("^([^%-]+)") or tostring(name)
+        if nshort==short then return true end
+    end
+    return false
+end
+
 local function CurrentEnemy()
     if testMode then return enemies[testGUID] end
     if hoverGUID and enemies[hoverGUID] then return enemies[hoverGUID] end
-    return targetGUID and enemies[targetGUID] or nil
+    if targetGUID and enemies[targetGUID] then return enemies[targetGUID] end
+    if vanishedGUID and vanishUntil and Now()<vanishUntil then
+        local e=enemies[vanishedGUID]
+        if e and e.class=="ROGUE" and IsOnNearbyList(e) then return e end
+    end
+    vanishedGUID=nil
+    vanishUntil=nil
+    return nil
 end
 local function Remaining(s,def,now)
     -- Enemy Moves answers "when can they use it again?".
@@ -566,6 +584,10 @@ local function UpdateTarget()
     targetGUID=nil
     if UnitExists("target") and UnitIsPlayer("target") and UnitCanAttack("player","target") then
         targetGUID=UnitGUID("target")
+        if vanishedGUID and targetGUID~=vanishedGUID then
+            vanishedGUID=nil
+            vanishUntil=nil
+        end
         local name,realm=UnitName("target")
         if realm and realm~="" then name=name.."-"..realm end
         local _,class=UnitClass("target")
@@ -828,7 +850,20 @@ eventFrame:SetScript("OnEvent",function(_,event,...)
 
     local def=SPELLS[spellID]
     if def and def.pet and not petOwner[sourceGUID] and not IsHostilePlayer(sourceFlags) then return end
+    local wasCurrentTarget = targetGUID and ownerGUID==targetGUID
     local tracked=TrackSpell(ownerGUID,ownerName,ownerClass,spellID,spellName,subevent)
+
+    -- Only Rogues get a post-target-loss grace period, and only when we
+    -- actually observe that Rogue Vanish while they are the active target.
+    local trackedDef=SPELLS[spellID]
+    if tracked and wasCurrentTarget and trackedDef and trackedDef.key=="VANISH" then
+        local e=enemies[ownerGUID]
+        if e and e.class=="ROGUE" and IsOnNearbyList(e) then
+            vanishedGUID=ownerGUID
+            vanishUntil=Now()+30
+        end
+    end
+
     if DB().debug and tracked then
         DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffb45cff[EnemyMoves]|r %s used %s (%s)",ownerName or "?",spellName or "?",tostring(spellID)))
     elseif DB().debug and IsHostilePlayer(sourceFlags)
@@ -836,7 +871,7 @@ eventFrame:SetScript("OnEvent",function(_,event,...)
         and sourceGUID==destGUID then
         DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffb45cff[EnemyMoves RAW]|r %s %s (%s)",subevent,spellName or "?",tostring(spellID)))
     end
-    if ownerGUID==targetGUID or testMode then EM:Refresh() end
+    if ownerGUID==targetGUID or ownerGUID==vanishedGUID or testMode then EM:Refresh() end
 end)
 
 ticker=C_Timer.NewTicker(0.10,function()
