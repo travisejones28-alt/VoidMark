@@ -1,3 +1,7 @@
+## 1.0.4
+- Fixed Enemy Moves shared Potion timer for mana/healing potion combat-log events (SPELL_ENERGIZE / SPELL_HEAL).
+- Confirmed Major Mana Potion surfaces as Restore Mana (spell 17531), so recognized potion events now start the 2:00 lockout regardless of event type.
+
 ## 1.0.3
 - Expanded Enemy Moves shared potion cooldown detection across PvP/control, protection, healing/mana event types, movement, defensive, and rage potion effects.
 - Added direct recognition for FAP, LAP, LIP, Swiftness, Greater Stoneshield, and protection-potion aura effects.
