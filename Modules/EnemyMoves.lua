@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.1.6"
+local VERSION = "1.1.7"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
 local HEADER_H, STATUS_H = 47, 22
@@ -364,7 +364,9 @@ local function BuildUI()
     frame.Banner:SetTexture("Interface\\AddOns\\VoidMark\\Textures\\VoidMarkGeneratedHeader.tga")
     -- Use only the logo-heavy upper/middle portion of the artwork. This keeps
     -- the banner compact without vertically squeezing the full composition.
-    frame.Banner:SetTexCoord(0,1,0.08,0.58)
+    -- The source art is a wide banner. This crop matches the compact
+    -- 42px header's aspect much more closely without zooming the logo.
+    frame.Banner:SetTexCoord(0,1,0.16,0.84)
     frame.Banner:SetAlpha(0.88)
 
     -- Dark lower band keeps module text readable while leaving the banner art
@@ -419,8 +421,8 @@ local function BuildUI()
     end)
 
     frame.Target=frame:CreateFontString(nil,"OVERLAY","GameFontNormal")
-    frame.Target:SetPoint("BOTTOMLEFT",frame.Banner,"BOTTOMLEFT",10,5)
-    frame.Target:SetPoint("RIGHT",frame.Banner,"RIGHT",-70,0)
+    frame.Target:SetPoint("BOTTOMLEFT",frame.Banner,"BOTTOMLEFT",8,3)
+    frame.Target:SetPoint("RIGHT",frame.Banner,"RIGHT",-76,0)
     frame.Target:SetJustifyH("LEFT")
     frame.Target:SetShadowOffset(1,-1)
     frame.Target:SetShadowColor(0,0,0,1)
