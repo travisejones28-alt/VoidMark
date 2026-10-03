@@ -3,17 +3,25 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.0.9"
+local VERSION = "1.1.0"
 local MAX_ROWS = 8
-local ROW_H, ROW_GAP = 20, 2
-local HEADER_H, STATUS_H = 40, 22
-local FRAME_W = 320
+local ROW_H, ROW_GAP = 22, 3
+local HEADER_H, STATUS_H = 44, 24
+local FRAME_W = 336
 
 local C = {
-    bg={0.018,0.010,0.026,0.97}, edge={0.48,0.16,0.72,0.95},
-    purple={0.72,0.36,1,1}, dim={0.62,0.54,0.68,1}, white={0.94,0.94,0.97,1},
-    red={0.95,0.20,0.24,1}, orange={1,0.58,0.12,1}, green={0.30,0.95,0.48,1},
-    blue={0.26,0.62,1,1}, gray={0.58,0.58,0.62,1},
+    bg={0.010,0.006,0.018,0.985},
+    panel={0.025,0.012,0.040,0.98},
+    edge={0.56,0.18,0.88,1.00},
+    glow={0.72,0.26,1.00,0.70},
+    purple={0.78,0.38,1.00,1},
+    dim={0.60,0.53,0.67,1},
+    white={0.97,0.96,1.00,1},
+    red={1.00,0.18,0.24,1},
+    orange={1.00,0.57,0.10,1},
+    green={0.30,1.00,0.52,1},
+    blue={0.28,0.64,1.00,1},
+    gray={0.62,0.62,0.68,1},
 }
 
 local SPELLS, CANON = {}, {}
@@ -319,6 +327,7 @@ local function ApplyAppearance()
     frame:SetScale(Clamp(db.scale,0.50,1.50))
     frame:SetAlpha(Clamp(db.frameOpacity,0.35,1.0))
     frame:SetBackdropColor(C.bg[1],C.bg[2],C.bg[3],Clamp(db.bgOpacity,0.15,1.0))
+    frame:SetBackdropBorderColor(C.edge[1],C.edge[2],C.edge[3],C.edge[4])
 end
 local function SavePosition()
     local db=DB()
@@ -343,48 +352,151 @@ local function BuildUI()
     frame:SetMovable(true)
     frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton")
-    frame:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=10,insets={left=2,right=2,top=2,bottom=2}})
+    frame:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=12,insets={left=3,right=3,top=3,bottom=3}})
     frame:SetBackdropBorderColor(unpack(C.edge))
+
+    -- Layered VoidMark shell: black-violet body, bright top accent, faint inner glow.
+    frame.HeaderBG=frame:CreateTexture(nil,"BACKGROUND",nil,1)
+    frame.HeaderBG:SetPoint("TOPLEFT",4,-4)
+    frame.HeaderBG:SetPoint("TOPRIGHT",-4,-4)
+    frame.HeaderBG:SetHeight(HEADER_H-5)
+    frame.HeaderBG:SetTexture("Interface\\Buttons\\WHITE8X8")
+    frame.HeaderBG:SetVertexColor(C.panel[1],C.panel[2],C.panel[3],0.98)
+
+    frame.TopAccent=frame:CreateTexture(nil,"ARTWORK",nil,1)
+    frame.TopAccent:SetPoint("TOPLEFT",5,-4)
+    frame.TopAccent:SetPoint("TOPRIGHT",-5,-4)
+    frame.TopAccent:SetHeight(2)
+    frame.TopAccent:SetTexture("Interface\\Buttons\\WHITE8X8")
+    frame.TopAccent:SetVertexColor(C.purple[1],C.purple[2],C.purple[3],0.95)
+
+    frame.InnerGlow=frame:CreateTexture(nil,"BACKGROUND",nil,2)
+    frame.InnerGlow:SetPoint("TOPLEFT",5,-5)
+    frame.InnerGlow:SetPoint("BOTTOMRIGHT",-5,5)
+    frame.InnerGlow:SetTexture("Interface\\Buttons\\WHITE8X8")
+    frame.InnerGlow:SetVertexColor(C.glow[1],C.glow[2],C.glow[3],0.035)
+
     frame:SetScript("OnDragStart",function(self) if not DB().locked then self:StartMoving() end end)
     frame:SetScript("OnDragStop",function(self) self:StopMovingOrSizing() SavePosition() end)
 
     frame.Title=frame:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
-    frame.Title:SetPoint("TOPLEFT",10,-7) frame.Title:SetText("ENEMY MOVES") SetColor(frame.Title,C.purple)
+    frame.Title:SetPoint("TOPLEFT",12,-8)
+    frame.Title:SetText("ENEMY MOVES")
+    frame.Title:SetShadowOffset(1,-1)
+    frame.Title:SetShadowColor(0,0,0,1)
+    SetColor(frame.Title,C.purple)
+
     frame.Version=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
-    frame.Version:SetPoint("TOPRIGHT",-45,-8) frame.Version:SetText("v"..VERSION) SetColor(frame.Version,C.dim)
+    frame.Version:SetPoint("TOPRIGHT",-48,-9)
+    frame.Version:SetText("v"..VERSION)
+    frame.Version:SetShadowOffset(1,-1)
+    frame.Version:SetShadowColor(0,0,0,0.9)
+    SetColor(frame.Version,C.dim)
 
     frame.OptionsButton=CreateFrame("Button",nil,frame,"BackdropTemplate")
-    frame.OptionsButton:SetSize(34,17) frame.OptionsButton:SetPoint("TOPRIGHT",-6,-5)
+    frame.OptionsButton:SetSize(38,18)
+    frame.OptionsButton:SetPoint("TOPRIGHT",-7,-6)
     frame.OptionsButton:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=6})
-    frame.OptionsButton:SetBackdropColor(0.05,0.025,0.075,0.96) frame.OptionsButton:SetBackdropBorderColor(0.40,0.13,0.60,0.95)
+    frame.OptionsButton:SetBackdropColor(0.045,0.020,0.070,0.98)
+    frame.OptionsButton:SetBackdropBorderColor(0.48,0.15,0.76,1)
     frame.OptionsButton.Text=frame.OptionsButton:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
-    frame.OptionsButton.Text:SetAllPoints() frame.OptionsButton.Text:SetText("OPT") SetColor(frame.OptionsButton.Text,C.purple)
+    frame.OptionsButton.Text:SetAllPoints()
+    frame.OptionsButton.Text:SetText("OPT")
+    SetColor(frame.OptionsButton.Text,C.purple)
+    frame.OptionsButton:SetScript("OnEnter",function(self)
+        self:SetBackdropColor(0.11,0.035,0.16,1)
+        self:SetBackdropBorderColor(0.72,0.28,1.00,1)
+        self.Text:SetTextColor(1,0.82,1,1)
+    end)
+    frame.OptionsButton:SetScript("OnLeave",function(self)
+        self:SetBackdropColor(0.045,0.020,0.070,0.98)
+        self:SetBackdropBorderColor(0.48,0.15,0.76,1)
+        SetColor(self.Text,C.purple)
+    end)
 
     frame.Target=frame:CreateFontString(nil,"OVERLAY","GameFontHighlight")
-    frame.Target:SetPoint("TOPLEFT",frame.Title,"BOTTOMLEFT",0,-2) frame.Target:SetPoint("RIGHT",frame,"RIGHT",-8,0)
-    frame.Target:SetJustifyH("LEFT") frame.Target:SetText("No hostile player targeted") SetColor(frame.Target,C.white)
+    frame.Target:SetPoint("TOPLEFT",frame.Title,"BOTTOMLEFT",0,-3)
+    frame.Target:SetPoint("RIGHT",frame,"RIGHT",-10,0)
+    frame.Target:SetJustifyH("LEFT")
+    frame.Target:SetShadowOffset(1,-1)
+    frame.Target:SetShadowColor(0,0,0,1)
+    frame.Target:SetText("No hostile player targeted")
+    SetColor(frame.Target,C.white)
 
     frame.StatusBG=frame:CreateTexture(nil,"ARTWORK")
-    frame.StatusBG:SetPoint("TOPLEFT",6,-HEADER_H) frame.StatusBG:SetPoint("TOPRIGHT",-6,-HEADER_H)
-    frame.StatusBG:SetHeight(STATUS_H) frame.StatusBG:SetTexture("Interface\\Buttons\\WHITE8X8")
-    frame.StatusBG:SetVertexColor(0.12,0.04,0.16,0.9)
+    frame.StatusBG:SetPoint("TOPLEFT",7,-HEADER_H)
+    frame.StatusBG:SetPoint("TOPRIGHT",-7,-HEADER_H)
+    frame.StatusBG:SetHeight(STATUS_H)
+    frame.StatusBG:SetTexture("Interface\\Buttons\\WHITE8X8")
+    frame.StatusBG:SetVertexColor(0.12,0.04,0.16,0.94)
+
+    frame.StatusTop=frame:CreateTexture(nil,"OVERLAY")
+    frame.StatusTop:SetPoint("TOPLEFT",frame.StatusBG,"TOPLEFT")
+    frame.StatusTop:SetPoint("TOPRIGHT",frame.StatusBG,"TOPRIGHT")
+    frame.StatusTop:SetHeight(1)
+    frame.StatusTop:SetTexture("Interface\\Buttons\\WHITE8X8")
+    frame.StatusTop:SetVertexColor(C.purple[1],C.purple[2],C.purple[3],0.42)
+
     frame.Status=frame:CreateFontString(nil,"OVERLAY","GameFontNormal")
-    frame.Status:SetPoint("CENTER",frame.StatusBG,"CENTER") frame.Status:SetText("WAITING") SetColor(frame.Status,C.dim)
+    frame.Status:SetPoint("CENTER",frame.StatusBG,"CENTER",0,0)
+    frame.Status:SetShadowOffset(1,-1)
+    frame.Status:SetShadowColor(0,0,0,1)
+    frame.Status:SetText("WAITING")
+    SetColor(frame.Status,C.dim)
 
     frame.Rows={}
     local rowsTop=HEADER_H+STATUS_H+5
     for i=1,MAX_ROWS do
         local row=CreateFrame("StatusBar",nil,frame)
         frame.Rows[i]=row
-        row:SetPoint("TOPLEFT",7,-(rowsTop+(i-1)*(ROW_H+ROW_GAP))) row:SetPoint("TOPRIGHT",-7,-(rowsTop+(i-1)*(ROW_H+ROW_GAP)))
-        row:SetHeight(ROW_H) row:SetStatusBarTexture("Interface\\TARGETINGFRAME\\UI-StatusBar") row:SetMinMaxValues(0,1)
-        row.BG=row:CreateTexture(nil,"BACKGROUND") row.BG:SetAllPoints() row.BG:SetTexture("Interface\\Buttons\\WHITE8X8")
-        row.BG:SetVertexColor(0.035,0.025,0.045,0.94)
-        row.Icon=row:CreateTexture(nil,"ARTWORK") row.Icon:SetSize(16,16) row.Icon:SetPoint("LEFT",2,0)
+        row:SetPoint("TOPLEFT",8,-(rowsTop+(i-1)*(ROW_H+ROW_GAP)))
+        row:SetPoint("TOPRIGHT",-8,-(rowsTop+(i-1)*(ROW_H+ROW_GAP)))
+        row:SetHeight(ROW_H)
+        row:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+        row:SetMinMaxValues(0,1)
+
+        row.BG=row:CreateTexture(nil,"BACKGROUND")
+        row.BG:SetAllPoints()
+        row.BG:SetTexture("Interface\\Buttons\\WHITE8X8")
+        row.BG:SetVertexColor(0.025,0.016,0.035,0.98)
+
+        row.LeftAccent=row:CreateTexture(nil,"OVERLAY")
+        row.LeftAccent:SetPoint("TOPLEFT",row,"TOPLEFT")
+        row.LeftAccent:SetPoint("BOTTOMLEFT",row,"BOTTOMLEFT")
+        row.LeftAccent:SetWidth(2)
+        row.LeftAccent:SetTexture("Interface\\Buttons\\WHITE8X8")
+
+        row.TopSheen=row:CreateTexture(nil,"OVERLAY")
+        row.TopSheen:SetPoint("TOPLEFT",row,"TOPLEFT",2,0)
+        row.TopSheen:SetPoint("TOPRIGHT",row,"TOPRIGHT",0,0)
+        row.TopSheen:SetHeight(1)
+        row.TopSheen:SetTexture("Interface\\Buttons\\WHITE8X8")
+        row.TopSheen:SetVertexColor(1,1,1,0.12)
+
+        row.IconBG=row:CreateTexture(nil,"ARTWORK")
+        row.IconBG:SetSize(20,20)
+        row.IconBG:SetPoint("LEFT",2,0)
+        row.IconBG:SetTexture("Interface\\Buttons\\WHITE8X8")
+        row.IconBG:SetVertexColor(0.08,0.04,0.11,1)
+
+        row.Icon=row:CreateTexture(nil,"OVERLAY")
+        row.Icon:SetSize(16,16)
+        row.Icon:SetPoint("CENTER",row.IconBG,"CENTER")
         row.Icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+
         row.Label=row:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
-        row.Label:SetPoint("LEFT",row.Icon,"RIGHT",4,0) row.Label:SetPoint("RIGHT",row,"RIGHT",-54,0) row.Label:SetJustifyH("LEFT")
-        row.Time=row:CreateFontString(nil,"OVERLAY","GameFontNormal") row.Time:SetPoint("RIGHT",-4,0) row.Time:SetWidth(46) row.Time:SetJustifyH("RIGHT")
+        row.Label:SetPoint("LEFT",row.IconBG,"RIGHT",5,0)
+        row.Label:SetPoint("RIGHT",row,"RIGHT",-57,0)
+        row.Label:SetJustifyH("LEFT")
+        row.Label:SetShadowOffset(1,-1)
+        row.Label:SetShadowColor(0,0,0,1)
+
+        row.Time=row:CreateFontString(nil,"OVERLAY","GameFontNormal")
+        row.Time:SetPoint("RIGHT",-5,0)
+        row.Time:SetWidth(48)
+        row.Time:SetJustifyH("RIGHT")
+        row.Time:SetShadowOffset(1,-1)
+        row.Time:SetShadowColor(0,0,0,1)
         row:Hide()
     end
 
@@ -495,18 +607,25 @@ function EM:Refresh()
             local def,s=item.def,item.state
             local c=ColorFor(def,item.active)
             local total=item.active and math.max(def.active or 1,1) or math.max(def.cd or 1,1)
-            row:SetMinMaxValues(0,total) row:SetValue(math.min(total,item.remain)) row:SetStatusBarColor(c[1],c[2],c[3],0.72)
+            local barValue=item.active and math.max(0,item.activeRemain or 0) or item.remain
+            row:SetMinMaxValues(0,total)
+            row:SetValue(math.min(total,barValue))
+            row:SetStatusBarColor(c[1],c[2],c[3],item.active and 0.88 or 0.66)
+            row.LeftAccent:SetVertexColor(c[1],c[2],c[3],1)
+            row.IconBG:SetVertexColor(c[1]*0.20,c[2]*0.20,c[3]*0.20,0.98)
+            row.TopSheen:SetVertexColor(1,1,1,item.active and 0.22 or 0.10)
             if s.lastSpellID and GetSpellTexture then
                 local tex=GetSpellTexture(s.lastSpellID)
                 if tex then row.Icon:SetTexture(tex) else row.Icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark") end
             elseif def.key=="POTION" then row.Icon:SetTexture("Interface\\Icons\\INV_Potion_54")
             else row.Icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark") end
             if item.active then
-                row.Label:SetText(string.format("%s |cffff4d5dACTIVE|r |cffffa64d(%s)|r",def.name,ActiveTime(item.activeRemain or 0)))
+                row.Label:SetText(string.format("|cffffffff%s|r  |cffff4d5dACTIVE|r |cffffb36b%s|r",def.name,ActiveTime(item.activeRemain or 0)))
             else
-                row.Label:SetText(def.name)
+                row.Label:SetText("|cfff2edf7"..def.name.."|r")
             end
-            row.Time:SetText(ShortTime(item.remain)) SetColor(row.Time,item.active and C.red or c)
+            row.Time:SetText(ShortTime(item.remain))
+            SetColor(row.Time,item.active and C.red or c)
             row:Show()
         else row:Hide() end
     end
