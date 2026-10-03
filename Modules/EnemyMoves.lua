@@ -3,7 +3,7 @@
 VoidMarkEnemyMoves = VoidMarkEnemyMoves or {}
 local EM = VoidMarkEnemyMoves
 
-local VERSION = "1.2.6"
+local VERSION = "1.2.7"
 local MAX_ROWS = 8
 local ROW_H, ROW_GAP = 22, 3
 local HEADER_H, STATUS_H = 63, 22
@@ -420,6 +420,11 @@ local function BuildUI()
         SetColor(self.Text,C.purple)
     end)
 
+    frame.TargetClassIcon=frame:CreateTexture(nil,"OVERLAY")
+    frame.TargetClassIcon:SetSize(14,14)
+    frame.TargetClassIcon:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
+    frame.TargetClassIcon:Hide()
+
     frame.Target=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
     frame.Target:SetWidth(104)
     frame.Target:SetJustifyH("LEFT")
@@ -435,7 +440,8 @@ local function BuildUI()
     frame.StatusBG:SetTexture("Interface\\Buttons\\WHITE8X8")
     frame.StatusBG:SetVertexColor(0.12,0.04,0.16,0.94)
 
-    frame.Target:SetPoint("LEFT",frame.StatusBG,"LEFT",6,0)
+    frame.TargetClassIcon:SetPoint("LEFT",frame.StatusBG,"LEFT",6,0)
+    frame.Target:SetPoint("LEFT",frame.TargetClassIcon,"RIGHT",4,0)
 
     frame.StatusTop=frame:CreateTexture(nil,"OVERLAY")
     frame.StatusTop:SetPoint("TOPLEFT",frame.StatusBG,"TOPLEFT")
@@ -604,8 +610,22 @@ function EM:Refresh()
     if not e then frame:Hide() return end
 
     local cc=RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.class]
-    if cc then frame.Target:SetText(string.format("%s  •  |cff%02x%02x%02x%s|r",e.name or "Unknown",cc.r*255,cc.g*255,cc.b*255,e.class or ""))
-    else frame.Target:SetText((e.name or "Unknown").."  •  "..tostring(e.class or "")) end
+    local shortName=tostring(e.name or "Unknown"):match("^([^%-]+)") or tostring(e.name or "Unknown")
+    frame.Target:SetText(shortName)
+
+    if cc then
+        frame.Target:SetTextColor(cc.r,cc.g,cc.b,1)
+    else
+        SetColor(frame.Target,C.white)
+    end
+
+    local coords=CLASS_ICON_TCOORDS and e.class and CLASS_ICON_TCOORDS[e.class]
+    if coords then
+        frame.TargetClassIcon:SetTexCoord(coords[1],coords[2],coords[3],coords[4])
+        frame.TargetClassIcon:Show()
+    else
+        frame.TargetClassIcon:Hide()
+    end
 
     local list=BuildRows(e,Now())
     if #list==0 then
