@@ -706,6 +706,69 @@ local function VictimKey(name, guid)
     return "N:" .. ExactPlayerNameKey(tostring(name or "?"))
 end
 
+-- Sightings often have a name but no GUID in PlayerData. The permanent ledger
+-- already knows that GUID; index its names so the UI can find the same history
+-- as RecordKill without scanning thousands of victims on each row refresh.
+local historicalGUIDIndex
+
+local function HistoricalGUIDIndex(history)
+    local index = historicalGUIDIndex
+    if not index or index.history ~= history or index.victims ~= history.victims
+        or index.floors ~= history.legacyFloors then
+        index = { history = history, victims = history.victims, floors = history.legacyFloors,
+            exact = {}, base = {}, canonical = {}, bare = {}, ready = false }
+        historicalGUIDIndex = index
+    end
+    return index
+end
+
+local function IndexHistoricalGUID(history, row)
+    if type(row) ~= "table" or not IsPlayerGUID(row.guid) then return end
+    local name = tostring(row.name or "")
+    if name == "" or name == "?" then return end
+    local guid = tostring(row.guid)
+    local index = HistoricalGUIDIndex(history)
+    local function bind(bucket, key)
+        if key == "" then return end
+        if bucket[key] == nil then bucket[key] = guid
+        elseif bucket[key] ~= guid then bucket[key] = false end
+    end
+    bind(index.exact, ExactPlayerNameKey(name))
+    bind(index.base, ExactPlayerNameKey(BasePlayerNameText(name)))
+    bind(index.canonical, CanonicalPlayerNameKey(name))
+    if name == BasePlayerNameText(name) then bind(index.bare, ExactPlayerNameKey(name)) end
+end
+
+local function RebuildHistoricalGUIDIndex(history)
+    if not history or InCombatNow() then return false end
+    historicalGUIDIndex = nil
+    local index = HistoricalGUIDIndex(history)
+    for _, victim in pairs(history.victims or {}) do IndexHistoricalGUID(history, victim) end
+    for _, floor in pairs(history.legacyFloors or {}) do IndexHistoricalGUID(history, floor) end
+    index.ready = true
+    return true
+end
+
+local function ResolveHistoricalGUID(history, name, guid)
+    if IsPlayerGUID(guid) then return tostring(guid) end
+    local index = HistoricalGUIDIndex(history)
+    local full = ExactPlayerNameKey(name)
+    local base = ExactPlayerNameKey(BasePlayerNameText(name))
+    local candidate
+    if full ~= base then
+        candidate = index.exact[full]
+        if candidate ~= nil then return candidate or "" end
+        -- A qualified name must not borrow another realm's qualified identity.
+        candidate = index.bare[base]
+        if candidate and index.base[base] == candidate then return candidate end
+        return ""
+    end
+    candidate = index.base[base]
+    if candidate ~= nil then return candidate or "" end
+    -- Accent recovery remains conservative: only one real GUID may own it.
+    return index.canonical[CanonicalPlayerNameKey(name)] or ""
+end
+
 local function FindVictimByName(history, name)
     if not history or not name then return nil end
 
@@ -844,7 +907,7 @@ local legacySpyLookup = nil
 -- Build the expensive accent/realm alias index once per loaded legacy table.
 -- Statistics can resolve hundreds/thousands of rows in one click; scanning all
 -- 3k+ recovered records once per row causes Classic's "script ran too long".
-local function EnsureLegacySpyLookup()
+local function EnsureLegacySpyLookup(allowBuild)
     local legacy = SpyDB and SpyDB.VoidMarkLegacyPlayers
     if type(legacy) ~= "table" then
         legacySpyLookupSource = nil
@@ -854,6 +917,7 @@ local function EnsureLegacySpyLookup()
     if legacySpyLookupSource == legacy and legacySpyLookup then
         return legacy, legacySpyLookup
     end
+    if allowBuild == false or InCombatNow() then return legacy, nil end
 
     local lookup = { exact = {}, canonical = {} }
     local function add(bucket, key, legacyKey, wins)
@@ -883,9 +947,9 @@ local function EnsureLegacySpyLookup()
     return legacy, lookup
 end
 
-local function LegacySpyLifetimeWins(name)
-    local legacy, lookup = EnsureLegacySpyLookup()
-    if not legacy or not lookup then return 0, nil, "none" end
+local function LegacySpyLifetimeWins(name, allowBuild)
+    local legacy, lookup = EnsureLegacySpyLookup(allowBuild)
+    if not legacy then return 0, nil, "none" end
 
     local raw = tostring(name or "")
     local base = BasePlayerNameText(raw)
@@ -894,6 +958,7 @@ local function LegacySpyLifetimeWins(name)
     if type(row) == "table" then
         return tonumber(row.wins) or 0, raw, "direct"
     end
+    if not lookup then return 0, nil, "none" end
 
     local full = lookup.exact[ExactPlayerNameKey(raw)]
     local baseMatch = lookup.exact[ExactPlayerNameKey(base)]
@@ -1052,7 +1117,7 @@ local function FastHistoricalCount(history, name, guid)
 
     local rawName = tostring(name or "")
     local baseName = BasePlayerNameText(rawName)
-    local guidText = tostring(guid or "")
+    local guidText = ResolveHistoricalGUID(history, rawName, guid)
     local eventCount = 0
     local counted = {}
 
@@ -1077,7 +1142,8 @@ local function FastHistoricalCount(history, name, guid)
         end
     end
 
-    local spyWins = FastSpyLifetimeWins(rawName, guidText)
+    local legacyWins = LegacySpyLifetimeWins(rawName, false)
+    local spyWins = math.max(FastSpyLifetimeWins(rawName, guidText), legacyWins)
 
     local unresolved = 0
     local old = history.legacyUnresolved
@@ -1207,6 +1273,7 @@ local function MergeLegacyGap(history, name, guid, incomingGap, suppressSync)
     if name and name ~= "" then entry.name = tostring(name) end
     if IsPlayerGUID(guid) then entry.guid = tostring(guid) end
     entry.version = 2
+    IndexHistoricalGUID(history, entry)
 
     -- Keep the old fields populated for readable diagnostics/backward safety,
     -- but calculations use legacyGap from this build onward.
@@ -1405,6 +1472,7 @@ local function EnsureVictim(history, event, fastOnly)
     victim.kills = tonumber(victim.kills) or 0
     if event.name and event.name ~= "" then victim.name = event.name end
     if event.guid and event.guid ~= "" then victim.guid = event.guid end
+    IndexHistoricalGUID(history, victim)
 
     return victim, key
 end
@@ -1570,6 +1638,7 @@ local function RepairLegacyHistory()
         end
     end
     CompactLegacyFloors(history)
+    RebuildHistoricalGUIDIndex(history)
 
     history.version = HISTORY_VERSION
     local sync = EnsureSyncDB()
@@ -2262,50 +2331,22 @@ function Repo:GetHistoricalBreakdown(playerName, playerGUID)
 end
 
 -- PERFORMANCE-CRITICAL compatibility helper used by VoidMark's compact rows
--- and tooltips.  These callers can refresh repeatedly while combat-log activity
--- is high, so this path MUST stay O(1) and must never walk the full Spy database,
--- victim table, unresolved table, or legacy-floor table.
+-- and tooltips. After the one-time out-of-combat index build, each lookup is
+-- O(1); combat refreshes never walk the full Spy/victim/legacy tables.
 --
--- Full recovery/identity matching still lives in GetHistoricalCount() and runs
--- when a kill is recorded or when the explicit diagnostic command is used.  The
--- compact UI already combines this repository value with playerData.wins, so an
--- unresolved old alias can safely wait for that slower recovery path without
--- hitching combat.
+-- Name-to-GUID aliases are built once outside combat and updated as rows arrive.
+-- Use the same direct historical calculation as RecordKill, including missing
+-- legacy kills. A sighting must not wait for another death to reveal its history.
 function Repo:GetHistoricalStats(playerName, playerGUID)
     local history = EnsureHistory()
     if not history then return 0, 0 end
 
-    local name = tostring(playerName or "")
-    local guid = tostring(playerGUID or "")
-    local key = VictimKey(name, guid)
-
-    -- Direct authoritative victim row. Once a real GUID is known this is the
-    -- normal path and requires a single table lookup.
-    local victim = history.victims and history.victims[key]
-    local eventCount = type(victim) == "table" and (tonumber(victim.kills) or 0) or 0
-
-    -- For a name-only identity, the exact normalized name key is also direct.
-    -- Do not perform accent/realm alias scans here; those are intentionally kept
-    -- out of the combat/UI hot path.
-    if eventCount <= 0 and not IsPlayerGUID(guid) and name ~= "" then
-        victim = history.victims and history.victims["N:" .. ExactPlayerNameKey(name)]
-        eventCount = type(victim) == "table" and (tonumber(victim.kills) or 0) or 0
+    if not HistoricalGUIDIndex(history).ready and not InCombatNow() then
+        RebuildHistoricalGUIDIndex(history)
     end
-
-    local floor = history.legacyFloors and history.legacyFloors[key]
-    local gap = type(floor) == "table" and LegacyGapFromEntry(floor) or 0
-
-    -- If the GUID floor has not been bound yet, allow one exact name-key lookup.
-    -- This is still O(1) and preserves older name-only floors without scanning.
-    if gap <= 0 and name ~= "" then
-        local nameFloor = history.legacyFloors and history.legacyFloors["N:" .. ExactPlayerNameKey(name)]
-        if type(nameFloor) == "table" then
-            gap = LegacyGapFromEntry(nameFloor)
-        end
-    end
-
-    local legacyWins = select(1, LegacySpyLifetimeWins(name))
-    return math.max(0, eventCount + gap, legacyWins), 0
+    if not InCombatNow() then EnsureLegacySpyLookup() end
+    local total = select(1, FastHistoricalCount(history, playerName, playerGUID))
+    return math.max(0, tonumber(total) or 0), 0
 end
 
 function Repo:GetRawEventCount()
@@ -2696,13 +2737,31 @@ function Repo:RecordKill(playerName, playerGUID, details)
     -- AddEvent(..., skipHistoricalRecovery=true) queues the deeper identity/
     -- legacy repair for later, so correctness is preserved without blocking
     -- the kill frame.
-    local preHistorical = select(1, FastHistoricalCount(history, playerName, playerGUID))
+    local preHistorical, preEventCount = FastHistoricalCount(history, playerName, playerGUID)
     preHistorical = tonumber(preHistorical) or 0
 
     local eventID = NextLocalEventID(sync, history)
     if not eventID then
         Print("ERROR: could not allocate a unique kill-event ID.")
         return preHistorical
+    end
+
+    -- Preserve the known missing-kill amount BEFORE appending this death.
+    -- Otherwise a stale/aliased PlayerData cache can leave the UI at the old
+    -- absolute total, or post-combat recovery can absorb this new kill into the
+    -- legacy gap. This uses only the direct indexes already read above.
+    local legacyGap = math.max(0, preHistorical - (tonumber(preEventCount) or 0))
+    local floorKey = VictimKey(playerName, playerGUID)
+    local floor = history.legacyFloors[floorKey]
+    if legacyGap > LegacyGapFromEntry(floor) then
+        floor = type(floor) == "table" and floor or {}
+        floor.name, floor.guid = tostring(playerName), tostring(playerGUID or "")
+        floor.legacyGap, floor.version = legacyGap, 2
+        floor.repoAtCapture, floor.floor = preEventCount, preHistorical
+        floor.capturedAt = Now()
+        history.legacyFloors[floorKey] = floor
+        IndexHistoricalGUID(history, floor)
+        if QueueLegacyFloorToPeer then QueueLegacyFloorToPeer(floor) end
     end
 
     details = details or {}
@@ -3489,6 +3548,9 @@ frame:SetScript("OnEvent", function(_, event, ...)
         local function BuildSpyIndexWhenSafe()
             if not RebuildSpyFastIndex() then
                 C_Timer.After(2.0, BuildSpyIndexWhenSafe)
+            else
+                RebuildHistoricalGUIDIndex(EnsureHistory())
+                EnsureLegacySpyLookup()
             end
         end
         C_Timer.After(1.0, BuildSpyIndexWhenSafe)

@@ -1,3 +1,11 @@
+## 1.3.10 — October 4 lifetime score fix
+- Resolve name-only sightings against the existing GUID-keyed kill ledger, so compact rows, details and lifetime tooltips show the full score before another kill.
+- Use the same fast history calculation for displayed scores and kill recording, including older imported totals and GUID-bound legacy gaps.
+- Preserve the known missing-kill gap before appending a new death so recovery cannot hide the new increment behind an older absolute total.
+- Build name/GUID indexes outside combat and update them as records arrive; ambiguous names cannot borrow another player's GUID history.
+- Add score regressions covering the stale 2–1 to 7–1 example, duplicate kills, realm/case/accent aliases, imported gaps, index rebuilds and combat lookups without database scans.
+- Validation: all score, existing behavior, runback and route regressions passed; all repository Lua and XML scripts compile. Live combat validation requires the WoW client.
+
 ## 1.3.9 — October 4 runback fixes
 - Anchor group/pet damage envelopes on the actual source unit; reject missing/recycled source tokens and stale location samples.
 - Resolve unknown enemy-area candidates from intersecting local map coverage and linked subareas. Known own-player/test areas retain their exact assignment path.

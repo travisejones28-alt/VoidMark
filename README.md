@@ -32,6 +32,7 @@ For developer validation, run:
 
 ```sh
 luatex --luaonly tests/regression.lua
+luatex --luaonly tests/score_regression.lua
 luatex --luaonly tests/runback_regression.lua
 luatex --luaonly tests/runback_routes.lua
 ```
