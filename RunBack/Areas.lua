@@ -34,7 +34,9 @@ function A:WorldPosition(unit)
         local mapID,w=self:Safe(C_Map and C_Map.GetWorldPosFromMapPos,ui,p)
         if w and (mapID==0 or mapID==1) then
             local wx,wy=w:GetXY()
-            return {x=wx,y=wy,map=mapID,source="C_Map world conversion ("..unit..")",uncertainty=0}
+            if self:Finite(wx) and self:Finite(wy) then
+                return {x=wx,y=wy,map=mapID,source="C_Map world conversion ("..unit..")",uncertainty=0}
+            end
         end
     end
 end
@@ -190,16 +192,19 @@ function A:FindUnitByGUID(guid)
 end
 
 -- When a direct damage combat-log event arrives after the hostile unit token has
--- vanished, the event itself still provides a conservative upper bound.  This
--- is only a fallback.  A live unit-token range envelope always wins.
-function A:RememberDamageEventEnvelope(guid,event,spellID,reason)
+-- vanished, recent direct damage supplies a loose modeled range allowance.
+-- Projectile travel and exceptional movement prevent a certified bound.
+-- A live unit-token range envelope always wins.
+function A:RememberDamageEventEnvelope(guid,event,spellID,reason,sourceGUID)
     if not guid then return false end
-    local anchor=self:WorldPosition("player")
+    local sourceUnit=self:FindGroupSourceUnit(sourceGUID)
+    if not sourceUnit then return false end
+    local anchor=self:WorldPosition(sourceUnit)
     if not anchor then return false end
     local bound,label
     if event=="SWING_DAMAGE" then
         bound=15
-        label="melee damage event"
+        label="melee damage event from "..sourceUnit
     elseif event=="RANGE_DAMAGE" or event=="SPELL_DAMAGE" or event=="DAMAGE_SHIELD" then
         local spellName,_,maxRange=self:GetSpellRangeInfo(spellID)
         if maxRange and maxRange>0 then
@@ -207,12 +212,12 @@ function A:RememberDamageEventEnvelope(guid,event,spellID,reason)
             -- ranged cast and projectile impact.  Overstating uncertainty makes
             -- the warning earlier, never later.
             bound=maxRange+30
-            label=string.format("direct %s event (%s; %.0f yd conservative envelope)",event,spellName or tostring(spellID),bound)
+            label=string.format("direct %s event from %s (%s; %.0f yd allowance)",event,sourceUnit,spellName or tostring(spellID),bound)
         else
-            -- Direct player damage in Era is comfortably inside this fallback.
-            -- Keep it deliberately loose so it cannot make the timer late.
+            -- Unknown spell ranges get a loose allowance. This is a heuristic,
+            -- not evidence of a guaranteed maximum caster/target separation.
             bound=60
-            label=string.format("direct %s event (60 yd conservative fallback)",event)
+            label=string.format("direct %s event from %s (60 yd allowance)",event,sourceUnit)
         end
     else
         return false
@@ -220,7 +225,7 @@ function A:RememberDamageEventEnvelope(guid,event,spellID,reason)
     anchor.uncertainty=bound
     anchor.source=label
     self.enemyBounds=self.enemyBounds or {}
-    self.enemyBounds[guid]={x=anchor.x,y=anchor.y,z=anchor.z,map=anchor.map,uncertainty=bound,source=anchor.source,at=self:Now(),reason=reason or "damage event"}
+    self.enemyBounds[guid]={x=anchor.x,y=anchor.y,z=anchor.z,map=anchor.map,uncertainty=bound,source=anchor.source,sourceGUID=sourceGUID,at=self:Now(),reason=reason or "damage event",damage=true}
     return true
 end
 
@@ -274,7 +279,8 @@ end
 
 function A:CaptureLocation(guid)
     local unit=self:FindUnitByGUID(guid)
-    local ctx=self.context or self:PlayerContext()
+    local ctx=self:PlayerContext()
+    self.context=ctx
 
     -- First try the enemy token at death time.
     if unit then
@@ -288,15 +294,15 @@ function A:CaptureLocation(guid)
     local b=self.enemyBounds and self.enemyBounds[guid]
     if b and self:Finite(b.uncertainty) then
         local age=math.max(0,self:Now()-(b.at or self:Now()))
-        local maxAge=math.max(2.0,(self.db and self.db.settings and self.db.settings.assist) or 30)
+        -- Older samples cannot bound instant movement or transport reliably.
+        -- Keep recent combat geometry, but never stretch a stale observation
+        -- across the full assist-credit window and call it a safe location.
+        local maxAge=2.0
         if age<=maxAge then
-            local p={x=b.x,y=b.y,z=b.z,map=b.map,source=b.source,uncertainty=b.uncertainty}
-            -- Preserve an older combat envelope instead of throwing away all
-            -- location information after two seconds.  Expand the possible
-            -- corpse radius by 14 yd/s for every second since the last valid
-            -- observation/direct-damage bound.  The expansion can only make
-            -- the warning earlier, so it remains a safe optimistic floor.
-            p.uncertainty=p.uncertainty+6+(14*age)
+            local p={x=b.x,y=b.y,z=b.z,map=b.map,source=b.source,uncertainty=b.uncertainty,sourceGUID=b.sourceGUID}
+            -- Model allowance for travel plus an instant movement ability.
+            -- This is an optimistic estimate, not a certified motion limit.
+            p.uncertainty=p.uncertainty+6+(16*age)+(age>0 and 40 or 0)
             p.source=string.format("recent combat envelope; %.2f s old; expanded to %.1f yd",age,p.uncertainty)
             return p,ctx,false
         end

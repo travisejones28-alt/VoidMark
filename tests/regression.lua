@@ -100,6 +100,7 @@ M.units.player.name='Taliaa';M.units.player.guid='Player-1-SELF'
 print('PASS: damage-record character isolation and global hygiene')
 
 local A={active={},db={settings={retention=900}},char={timers={}}}
+A.Finite=function(_,n) return type(n)=="number" and n==n and n~=math.huge and n~=-math.huge end
 A.Now=function() return M.now end;A.Epoch=function() return M.epoch end;A.Save=function() end
 local removed=0
 A.OnVoidMarkTimerRemoved=function(self,r) assert(not self.active[r.guid]);removed=removed+1 end
@@ -187,4 +188,3 @@ row.scripts.PreClick(row,'RightButton',false);eq(actions,1,'release opens menu o
 row.scripts.PreClick(row,'LeftButton',true);row.scripts.PreClick(row,'LeftButton',false);eq(actions,2,'modifier action once per click')
 print('PASS: row menu/modifier actions execute once per physical click')
 print('All regression checks passed; live WoW combat and secure UI validation still required.')
-

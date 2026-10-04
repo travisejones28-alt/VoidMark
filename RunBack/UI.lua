@@ -115,6 +115,21 @@ function A:ShowReport(title,body)
     self.report.title:SetText(title); self.report.edit:SetText(body); self.report.edit:SetCursorPosition(0); self.report:Show()
 end
 function A:ShowSettings()
+    if not self.frame then
+        self:ShowReport("VoidMark runback settings",table.concat({
+            "Timers appear in the normal VoidMark rows. Use VoidMark settings for their appearance.",
+            "Route diagnostics for details/calibration: "..tostring(self.db.settings.routes),
+            "/trb routes on | off - enable routes for requested details and own-player calibration",
+            "/trb details [name] - inspect an active timer",
+            "/trb route [name] - explicitly calculate its advisory route",
+            "/trb test [normal|nightelf] - create a local test row",
+            "/trb calibrate - measure your own corpse run; release immediately",
+            "/trb calibrate report | cancel | clear",
+            "/trb clear - remove transient timers",
+            "Route estimates and calibration never postpone the visible countdown.",
+        },"\n"))
+        return
+    end
     if self.settingsFrame then self.settingsFrame:Show(); return end
     local f=CreateFrame("Frame",nil,UIParent,"BackdropTemplate"); self.settingsFrame=f
     f:SetSize(370,270); f:SetPoint("CENTER"); f:SetFrameStrata("DIALOG"); f:EnableMouse(true)

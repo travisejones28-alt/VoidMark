@@ -1,3 +1,16 @@
+## 1.3.9 — October 4 runback fixes
+- Anchor group/pet damage envelopes on the actual source unit; reject missing/recycled source tokens and stale location samples.
+- Resolve unknown enemy-area candidates from intersecting local map coverage and linked subareas. Known own-player/test areas retain their exact assignment path.
+- Reconnect positive resurrection detection and one-shot configured alerts, including a target/nameplate that keeps its token across resurrection. Sightings never change or train the countdown.
+- Resolve player rows by GUID/full realm identity; ambiguous bare names cannot pin another player's timer.
+- Allocate the waypoint graph only for requested diagnostics. Ordinary kills never queue routes; expiry, capacity, replacement and clear cancel obsolete jobs.
+- Add `/trb details [name]`, `/trb route [name]` and `/trb routes on|off`; repair integrated show/settings/reset commands and align coordinate reports with countdown geometry.
+- Reject nonfinite saved timers/settings and re-evaluate older transient warnings without postponing them. Keep the compact countdown/red elapsed display and 60-second post-warning pin.
+- Align runback death deduplication with the six-second kill-credit window.
+- Require validated own corpse-range events and matching release graveyards for new calibration; confidence counts accepted factors. Older unverified samples remain stored but do not affect estimates.
+- Add focused runback regressions and independent real-data routing comparisons; update data limitations and commands in documentation.
+- Validation: repository-owned Lua syntax, existing regression suite, focused runback suite and five route/Dijkstra comparisons. Current Era terrain, secure UI and live combat still require in-game validation.
+
 ## 1.3.8 — October 3 audit
 - Fixed late-local scope errors in Hunter kill/Feign handling, record headings and sync-button state; corrected the Hunter helper's method calling convention.
 - Feign Death no longer reaches the independent run-back death path; confirmed real Hunter kills still count once.

@@ -41,7 +41,7 @@ function A:FloorFor(p,resolution,race,faction)
     local speed,speedReason=self:GhostSpeed(race,faction)
     local r={seconds=0,distance=0,speed=speed,speedReason=speedReason,radius=40,delay=0,
         confidence="UNKNOWN",routeStatus="No route calculated",adjustment="No reaction/release padding"}
-    if not p or not self:Finite(p.uncertainty) then
+    if not p or not self:Finite(p.uncertainty) or p.uncertainty<0 then
         r.reason="Enemy location has no defensible distance bound; immediate warning"
         r.distance=nil
         return r
@@ -103,9 +103,15 @@ local function pop(h)
     return first
 end
 
+function A:EnsureRouteData()
+    if self.routeDataLoaded then return true end
+    if self.LoadRouteData then return self:LoadRouteData() end
+    return next(self.Data.nodes or {})~=nil
+end
+
 function A:NearbyNodes(p,radius)
     local result={}
-    if not p then return result end
+    if not p or not self:Finite(p.x) or not self:Finite(p.y) or not self:EnsureRouteData() then return result end
     local bx,by=floor(p.x/250),floor(p.y/250)
     for ix=bx-1,bx+1 do
         for iy=by-1,by+1 do
@@ -218,8 +224,9 @@ end
 -- A* route diagnostic.  It is intentionally NOT allowed to postpone the
 -- earliest-return warning.  A waypoint route is an upper-bound/approximation,
 -- not proof that a shorter traversable route does not exist.
-function A:RequestRoute(start,goal,callback)
-    if not start or not goal then callback(nil,"Missing endpoints"); return end
+function A:RequestRoute(start,goal,callback,owner)
+    if not start or not goal or start.map~=goal.map then callback(nil,"Missing or mismatched endpoints"); return end
+    if #self.routeQueue>=64 then callback(nil,"Route queue full; try again later"); return end
     local a,b=self:NearbyNodes(start,80),self:NearbyNodes(goal,80)
     if #a==0 or #b==0 then
         callback(nil,"Network gap: no waypoint node within 80 yd of both endpoints")
@@ -232,7 +239,7 @@ function A:RequestRoute(start,goal,callback)
         return
     end
 
-    local job={heap={},dist={},closed={},ends={},goal=goal,start=start,callback=callback,key=key,expanded=0}
+    local job={heap={},dist={},closed={},ends={},goal=goal,start=start,callback=callback,key=key,expanded=0,owner=owner}
     for _,v in ipairs(b) do job.ends[v.id]=max(0,v.d-40) end
 
     local function heuristic(id)
@@ -251,6 +258,20 @@ function A:RequestRoute(start,goal,callback)
     self:ScheduleRouteSlice()
 end
 
+function A:CancelRoutesFor(owner)
+    for i=#self.routeQueue,1,-1 do
+        if self.routeQueue[i].owner==owner then table.remove(self.routeQueue,i) end
+    end
+    if owner then owner.routeRequested=nil end
+end
+
+function A:CancelAllRoutes()
+    for _,job in ipairs(self.routeQueue) do
+        if job.owner then job.owner.routeRequested=nil end
+    end
+    self.routeQueue={}
+end
+
 function A:ScheduleRouteSlice()
     if self.routeScheduled or #self.routeQueue==0 then return end
     self.routeScheduled=true
@@ -261,6 +282,12 @@ function A:ScheduleRouteSlice()
 end
 
 function A:RouteSlice()
+    -- Reject stale owners before doing any graph expansion.
+    while self.routeQueue[1] and self.routeQueue[1].owner do
+        local owner=self.routeQueue[1].owner
+        if (owner.guid and self.active[owner.guid]==owner) or self.calibrationSession==owner then break end
+        table.remove(self.routeQueue,1)
+    end
     local j=self.routeQueue[1]
     if not j then return end
     self.metrics.slices=self.metrics.slices+1

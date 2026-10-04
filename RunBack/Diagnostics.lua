@@ -22,8 +22,10 @@ function A:ZoneReport()
         out[#out+1]=id.." "..self:AreaName(id)
         for _,l in ipairs(self.Data.links[id] or {}) do out[#out+1]="  GY "..l[1].." faction "..l[2] end
     end
-    out[#out+1]="Direct-area network nodes: "..tostring(self.Data.networkCounts[c.area] or 0)
-    out[#out+1]="Zone network nodes: "..tostring(self.Data.networkCounts[c.zone] or 0)
+    if self.routeDataLoaded then
+        out[#out+1]="Direct-area network nodes: "..tostring(self.Data.networkCounts[c.area] or 0)
+        out[#out+1]="Zone network nodes: "..tostring(self.Data.networkCounts[c.zone] or 0)
+    else out[#out+1]="Waypoint tables not loaded; request /trb route to load diagnostics." end
     out[#out+1]="Route confidence: public waypoint network, incomplete; never delays warning."
     local mp=c.uiMap and self:Safe(C_Map and C_Map.GetPlayerMapPosition,c.uiMap,"player")
     local explored=mp and self:Safe(C_MapExplorationInfo and C_MapExplorationInfo.GetExploredAreaIDsAtPosition,c.uiMap,mp)
@@ -56,7 +58,7 @@ function A:TargetReport()
     local i=self.seen[id] or {}; local p=self:WorldPosition("target")
     self:ShowReport("Target diagnostics",table.concat({tostring(i.name),id,"Race: "..tostring(i.race),"Faction: "..tostring(i.faction),"Class: "..tostring(i.class),
         p and string.format("World %d: %.2f, %.2f",p.map,p.x,p.y) or "Enemy coordinates unavailable. No bounded corpse position can be inferred.",
-        "Observing this target does not update or train any resurrection timer."},"\n"))
+        "A confirmed live target may trigger a resurrection alert; it never changes or trains the countdown."},"\n"))
 end
 function A:Sample()
     local c=self:PlayerContext(); local speed=self:Safe(GetUnitSpeed,"player")
@@ -113,9 +115,7 @@ function A:AnalyzePosition(arg)
     for _,g in ipairs(res.candidates or {}) do
         local d=self:Distance(p,g)
         if d then
-            if self:Finite(p.z) and self:Finite(g.z) then
-                d=(d*d+(p.z-g.z)^2)^0.5
-            end
+            -- Match FloorFor's horizontal geometry, including its warning GY.
             local raw=math.max(0,d-40)/speed
             local safe=math.max(0,raw-(floor.safetySeconds or 0))
             rows[#rows+1]={g=g,d=d,raw=raw,safe=safe}
@@ -163,18 +163,34 @@ function A:CalibrationKey(zone,graveyard,faction)
     return table.concat({tostring(zone or 0),tostring(graveyard or 0),tostring(faction or "Unknown")},":")
 end
 
+function A:ValidCalibrationSample(v,graveyard)
+    return self:Finite(graveyard) and type(v)=="table" and v.corpseRangeConfirmed==true
+        and v.actualStartGY==graveyard and self:Finite(v.actualStartGYDistance) and v.actualStartGYDistance>=0 and v.actualStartGYDistance<=80
+        and self:Finite(v.actualRun) and v.actualRun>0
+        and self:Finite(v.releaseDelay) and v.releaseDelay>=0 and v.releaseDelay<=20
+end
+
 function A:GetRouteCalibration(zone,graveyard,faction)
     if not self.db or not self.db.calibration then return nil end
     local bucket=self.db.calibration.routes[self:CalibrationKey(zone,graveyard,faction)]
     if type(bucket)~="table" or type(bucket.samples)~="table" or #bucket.samples==0 then return nil end
     local routeFactors,geoFactors,releaseDelays={}, {}, {}
     for _,v in ipairs(bucket.samples) do
-        if self:Finite(v.routeFactor) and v.routeFactor>=0.75 and v.routeFactor<=3 then routeFactors[#routeFactors+1]=v.routeFactor end
-        if self:Finite(v.geoFactor) and v.geoFactor>=0.75 and v.geoFactor<=3 then geoFactors[#geoFactors+1]=v.geoFactor end
-        if self:Finite(v.releaseDelay) and v.releaseDelay>=0 and v.releaseDelay<=20 then releaseDelays[#releaseDelays+1]=v.releaseDelay end
+        if self:ValidCalibrationSample(v,graveyard) then
+            if self:Finite(v.routeFactor) and v.routeFactor>=0.75 and v.routeFactor<=3 then routeFactors[#routeFactors+1]=v.routeFactor end
+            if self:Finite(v.geoFactor) and v.geoFactor>=0.75 and v.geoFactor<=3 then geoFactors[#geoFactors+1]=v.geoFactor end
+        end
+    end
+    local useRoute=#routeFactors>0
+    for _,v in ipairs(bucket.samples) do
+        if self:ValidCalibrationSample(v,graveyard) then
+            local factor
+            if useRoute then factor=v.routeFactor else factor=v.geoFactor end
+            if self:Finite(factor) and factor>=0.75 and factor<=3 then releaseDelays[#releaseDelays+1]=v.releaseDelay end
+        end
     end
     return {
-        n=#bucket.samples,
+        n=useRoute and #routeFactors or #geoFactors,stored=#bucket.samples,
         routeFactor=median(routeFactors),
         geoFactor=median(geoFactors),
         releaseDelay=median(releaseDelays) or 0,
@@ -220,6 +236,7 @@ function A:ArmCalibration()
 end
 
 function A:StopCalibration(reason)
+    if self.calibrationSession then self:CancelRoutesFor(self.calibrationSession) end
     if self.calibrationTicker then self.calibrationTicker:Cancel(); self.calibrationTicker=nil end
     self.calibrationSession=nil
     self.calibrationAuto=nil
@@ -227,6 +244,7 @@ function A:StopCalibration(reason)
 end
 
 function A:RearmCalibration()
+    if self.calibrationSession then self:CancelRoutesFor(self.calibrationSession) end
     if self.calibrationTicker then self.calibrationTicker:Cancel(); self.calibrationTicker=nil end
     if self.calibrationAuto then
         self.calibrationSession={armed=true}
@@ -259,7 +277,7 @@ function A:BeginCalibrationDeath()
             if A.calibrationSession~=s then return end
             s.routeStatus=status
             if distance and calc.speed and calc.speed>0 then s.baseRouteSeconds=distance/calc.speed end
-        end)
+        end,s)
     end
 
     if self.calibrationTicker then self.calibrationTicker:Cancel() end
@@ -287,22 +305,14 @@ function A:CalibrationTick()
         self:Print(string.format("Release detected +%.1fs. Running timer started.",s.releaseDelay))
     end
 
-    if s.ghostAt and UnitIsGhost("player") then
-        local pos=self:WorldPosition("player")
-        local d=pos and self:Distance(pos,s.corpse)
-        if d and d<=40 then
-            s.reclaimAt=now; s.reclaimDistance=d
-            self:FinishCalibration()
-            return
-        end
-    end
-
+    -- Completion comes from the client's corpse-range event. A horizontal
+    -- 40 yd poll could incorrectly finish while on another terrain height.
     if now-s.deadAt>300 then self:StopCalibration("Calibration timed out after 5 minutes.") end
 end
 
 function A:FinishCalibration()
     local s=self.calibrationSession
-    if not s or not s.ghostAt or not s.reclaimAt then return end
+    if not s or not s.ghostAt or not s.reclaimAt or not s.corpseRangeConfirmed then return end
     local total=s.reclaimAt-s.deadAt
     local run=s.reclaimAt-s.ghostAt
     local geo=s.calc and s.calc.seconds or nil
@@ -314,7 +324,12 @@ function A:FinishCalibration()
         geoFactor=(geo and geo>0) and run/geo or nil,
         routeFactor=(route and route>0) and run/route or nil,
         actualStartGY=s.actualStartGY,actualStartGYDistance=s.actualStartGYDistance,
+        corpseRangeConfirmed=true,
     }
+    if not self:ValidCalibrationSample(sample,s.graveyard) then
+        self:Print("Calibration discarded: release timing or actual graveyard could not validate this corpse run.")
+        self:RearmCalibration(); return
+    end
     local key=self:CalibrationKey(sample.zone,sample.graveyard,sample.faction)
     local bucket=self.db.calibration.routes[key]
     if type(bucket)~="table" then bucket={samples={}}; self.db.calibration.routes[key]=bucket end
@@ -336,10 +351,14 @@ function A:CalibrationEvent(event)
     local s=self.calibrationSession
     if not s then return end
     if event=="PLAYER_DEAD" and s.armed then self:BeginCalibrationDeath()
+    elseif event=="CORPSE_IN_RANGE" and not s.armed and UnitIsGhost("player") then
+        self:CalibrationTick()
+        if self.calibrationSession==s and s.ghostAt then
+            s.corpseRangeConfirmed=true; s.reclaimAt=self:Now(); self:FinishCalibration()
+        end
     elseif event=="PLAYER_UNGHOST" and not s.armed then
-        -- If the player resurrects just outside our 40 yd polling sample, take
-        -- the unghost moment as a conservative fallback measurement.
-        if s.ghostAt and not s.reclaimAt then s.reclaimAt=self:Now(); self:FinishCalibration() end
+        self:Print("Calibration discarded: resurrection occurred before confirmed corpse range.")
+        self:RearmCalibration()
     end
 end
 
@@ -355,10 +374,10 @@ function A:CalibrationReport()
             local zoneName=self:AreaName(zoneID)
             local gy=self.Data.graveyards and self.Data.graveyards[gyID]
             local gyName=(gy and gy.name) or (b.samples[#b.samples] and b.samples[#b.samples].graveyardName) or tostring(gyID)
-            local confidence,weight=self:CalibrationConfidence(#b.samples)
+            local confidence,weight=self:CalibrationConfidence(c and c.n or 0)
             local observed=c and (c.routeFactor or c.geoFactor) or nil
             local applied=observed and (1+((observed-1)*weight)) or nil
-            out[#out+1]=string.format("%s -> %s | %s | n=%d | %s | route x%s | applied x%s | geo x%s | release %.1fs",zoneName,gyName,faction,#b.samples,confidence,c and c.routeFactor and string.format("%.2f",c.routeFactor) or "?",applied and string.format("%.2f",applied) or "?",c and c.geoFactor and string.format("%.2f",c.geoFactor) or "?",c and c.releaseDelay or 0)
+            out[#out+1]=string.format("%s -> %s | %s | accepted n=%d / stored %d | %s | route x%s | applied x%s | geo x%s | release %.1fs",zoneName,gyName,faction,c and c.n or 0,#b.samples,confidence,c and c.routeFactor and string.format("%.2f",c.routeFactor) or "?",applied and string.format("%.2f",applied) or "?",c and c.geoFactor and string.format("%.2f",c.geoFactor) or "?",c and c.releaseDelay or 0)
         end
     end
     if count==0 then out[#out+1]="No calibration samples yet." end
@@ -366,16 +385,39 @@ function A:CalibrationReport()
     self:ShowReport("Run-back calibration",table.concat(out,"\n"))
 end
 
+function A:TimerDetails(name,route)
+    local r
+    if name and name~="" then
+        r=Spy.GetRunBackRecord and Spy:GetRunBackRecord(name)
+    else
+        local guid=self:Safe(UnitGUID,"target")
+        r=guid and self.active[guid]
+        if not r then
+            for _,v in pairs(self.active) do if not r or v.diedAt>r.diedAt then r=v end end
+        end
+    end
+    if not r then self:Print("No matching active timer. Use an exact name if realms share a name."); return end
+    local function show(record) A:ShowReport("Enemy runback details",table.concat(A:DetailLines(record),"\n")) end
+    show(r)
+    if route or self.db.settings.routes then self:RequestTimerRoute(r,show) end
+end
+
 function A:InstallCommands()
     SLASH_TALIAARUNBACK1="/trb"
     SlashCmdList.TALIAARUNBACK=function(msg)
         local cmd,arg=msg:match("^%s*(%S*)%s*(.-)%s*$"); cmd=string.lower(cmd or ""); arg=string.lower(arg or "")
-        if cmd=="" or cmd=="show" then A.db.settings.hidden=not A.db.settings.hidden; A:ApplyAppearance()
+        if cmd=="" or cmd=="show" then
+            if Spy and Spy.MainWindow then Spy.MainWindow:Show() else A:Print("Runback timers appear in the VoidMark window.") end
         elseif cmd=="test" then A:TestDeath(arg)
         elseif cmd=="gy" then A:GraveyardReport(arg)
         elseif cmd=="analyze" or cmd=="analyse" then A:AnalyzePosition(arg)
         elseif cmd=="zone" then A:ZoneReport()
         elseif cmd=="target" then A:TargetReport()
+        elseif cmd=="details" then A:TimerDetails(arg,false)
+        elseif cmd=="route" then A:TimerDetails(arg,true)
+        elseif cmd=="routes" then
+            if arg=="on" then A.db.settings.routes=true elseif arg=="off" then A.db.settings.routes=false end
+            A:Print("Routes for requested details/calibration: "..tostring(A.db.settings.routes)..". Ordinary kills never start route searches.")
         elseif cmd=="sample" then A:Sample()
         elseif cmd=="calibrate" then
             if arg=="cancel" then A:StopCalibration("Calibration cancelled.")
@@ -388,7 +430,10 @@ function A:InstallCommands()
             A.db.settings.debug=not A.db.settings.debug
             A:Print(string.format("Debug %s | deaths %d | route jobs %d | slices %d | schema %d",tostring(A.db.settings.debug),A.metrics.deaths,A.metrics.jobs,A.metrics.slices,A.schema))
             A:Print("APIs: UnitPosition="..tostring(type(UnitPosition)).."; GetGraveyardsForMap="..tostring(C_DeathInfo and type(C_DeathInfo.GetGraveyardsForMap)))
-        elseif cmd=="resetpos" then A.char.position=nil; A.frame:ClearAllPoints(); A.frame:SetPoint("CENTER",UIParent,"CENTER",0,120)
-        else A:Print("/trb [test [normal|nightelf], analyze [alliance|horde], calibrate [report|cancel|clear], target, gy [alliance|horde], zone, sample, settings, debug, clear, resetpos]") end
+        elseif cmd=="resetpos" then
+            A.char.position=nil
+            if A.frame then A.frame:ClearAllPoints(); A.frame:SetPoint("CENTER",UIParent,"CENTER",0,120)
+            else A:Print("Runback timers use the VoidMark window; move it with the normal VoidMark controls.") end
+        else A:Print("/trb [test [normal|nightelf], details [name], route [name], routes [on|off], analyze [alliance|horde], calibrate [report|cancel|clear], target, gy [alliance|horde], zone, sample, settings, debug, clear, resetpos]") end
     end
 end

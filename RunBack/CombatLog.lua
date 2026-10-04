@@ -7,13 +7,26 @@ local AFFILIATION=0x7 -- mine, party, raid; includes pets with player control
 local damage={SWING_DAMAGE=true,RANGE_DAMAGE=true,SPELL_DAMAGE=true,SPELL_PERIODIC_DAMAGE=true,DAMAGE_SHIELD=true,DAMAGE_SPLIT=true}
 
 function A:RefreshGroup()
-    self.group={}
-    for _,u in ipairs({"player","pet"}) do local id=UnitGUID(u); if id then self.group[id]=true end end
+    self.group={}; self.sourceUnits={}
+    local function remember(u)
+        local id=self:Safe(UnitGUID,u)
+        if id then self.group[id]=true; self.sourceUnits[id]=u end
+    end
+    for _,u in ipairs({"player","pet"}) do remember(u) end
     for i=1,40 do
         local prefix=IsInRaid and IsInRaid() and "raid" or "party"
         if prefix=="party" and i>4 then break end
-        for _,u in ipairs({prefix..i,prefix.."pet"..i}) do local id=UnitGUID(u); if id then self.group[id]=true end end
+        for _,u in ipairs({prefix..i,prefix.."pet"..i}) do remember(u) end
     end
+end
+
+function A:FindGroupSourceUnit(guid)
+    if not guid then return nil end
+    local unit=self.sourceUnits and self.sourceUnits[guid]
+    if unit and self:Safe(UnitExists,unit) and self:Safe(UnitGUID,unit)==guid then return unit end
+    self:RefreshGroup()
+    unit=self.sourceUnits[guid]
+    if unit and self:Safe(UnitExists,unit) and self:Safe(UnitGUID,unit)==guid then return unit end
 end
 
 function A:IsOurSource(guid,flags)
@@ -47,7 +60,7 @@ function A:Observe(unit)
     local level=self:Safe(UnitLevel,unit)
 
     self.seen[guid]={name=name,level=level,class=class,race=race,faction=faction,observed=self:Now()}
-    self.units[guid]=unit
+    if unit~="mouseover" then self.units[guid]=unit end
 
     -- The protected-action report we captured came specifically through the
     -- UPDATE_MOUSEOVER_UNIT path while range/location enrichment was running.
@@ -62,7 +75,30 @@ function A:Observe(unit)
     end
 
     self:ScheduleCleanup()
-    -- Identity/range observations never alter an already-created death timer.
+    -- Life-state confirmation triggers detection/alerts only. It never changes
+    -- the physical estimate. Mouseover remains identity-only.
+    if unit~="mouseover" then self:ConfirmLiveObservation(guid,unit) end
+end
+
+function A:ConfirmLiveObservation(guid,unit)
+    local r=self.active and self.active[guid]
+    if not r or r.rezConfirmed or unit=="mouseover" then return false end
+    if self:Now()-(r.deathObservedAt or self:Now())<0.5 then return false end
+    if self:Safe(UnitGUID,unit)~=guid or self:Safe(UnitIsDeadOrGhost,unit)~=false then return false end
+    if type(UnitIsFeignDeath)=="function" and self:Safe(UnitIsFeignDeath,unit)~=false then return false end
+    r.rezConfirmed=true; r.rezObservedAt=self:Now(); r.rezObservedEpoch=self:Epoch()
+    if self.OnVoidMarkRezConfirmed then self:OnVoidMarkRezConfirmed(r,unit) end
+    self:Save()
+    return true
+end
+
+function A:CheckLiveTimers()
+    -- A selected target/nameplate may keep the same token across resurrection,
+    -- without another added/target-changed event. Reuse the existing UI tick.
+    for guid,r in pairs(self.active) do
+        local unit=self.units[guid]
+        if unit and not r.rezConfirmed then self:ConfirmLiveObservation(guid,unit) end
+    end
 end
 
 function A:ForgetUnit(unit)
@@ -84,7 +120,7 @@ function A:CombatEvent(timestamp,event,hideCaster,sg,sn,sf,srf,dg,dn,df,drf,...)
             local captured=self:RememberEnemyEnvelopeByGUID(dg,"our damage event")
             if not captured and event~="SPELL_PERIODIC_DAMAGE" and event~="DAMAGE_SPLIT" then
                 local spellID=(event=="SWING_DAMAGE") and nil or select(1,...)
-                self:RememberDamageEventEnvelope(dg,event,spellID,"our direct damage event")
+                self:RememberDamageEventEnvelope(dg,event,spellID,"our direct damage event",sg)
             end
             self:ScheduleCleanup()
         end
@@ -107,7 +143,9 @@ function A:CombatEvent(timestamp,event,hideCaster,sg,sn,sf,srf,dg,dn,df,drf,...)
     local eligible=(event=="PARTY_KILL" and self:IsOurSource(sg,sf)) or (self.involved[dg] and now-self.involved[dg]<=self.db.settings.assist)
     if not eligible then self.metrics.ignored=self.metrics.ignored+1; return end
     self.lastDeath=self.lastDeath or {}
-    if self.lastDeath[dg] and now-self.lastDeath[dg]<2 then return end
+    -- Match the central kill-credit duplicate window. A second event for the
+    -- same death must not restart the row's countdown.
+    if self.lastDeath[dg] and now-self.lastDeath[dg]<6 then return end
     if not self:IsOutdoor() then return end
     self.lastDeath[dg]=now; self.involved[dg]=nil
     local info=self.seen[dg] or {}
@@ -118,7 +156,7 @@ function A:CombatEvent(timestamp,event,hideCaster,sg,sn,sf,srf,dg,dn,df,drf,...)
     end
     local _,_,_,latency=self:Safe(GetNetStats)
     latency=self:Finite(latency) and math.max(0,latency/1000) or 0
-    local death={guid=dg,name=dn or info.name,at=now-latency,latency=latency,epoch=self:Epoch(),position=p,context=ctx,exactArea=exact,
+    local death={guid=dg,name=info.name or dn,at=now-latency,observedAt=now,latency=latency,epoch=self:Epoch(),position=p,context=ctx,exactArea=exact,
         faction=faction,race=info.race,class=info.class,level=info.level}
     -- The event handler does no graveyard search, pathfinding, or UI work.
     C_Timer.After(0,function() A:CreateTimer(death) end)

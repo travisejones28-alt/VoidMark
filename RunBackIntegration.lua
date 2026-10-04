@@ -12,63 +12,68 @@ local function BaseName(name)
 end
 
 local function Lower(s) return string.lower(tostring(s or "")) end
+local function KnownGUID(info)
+    local guid=type(info)=="table" and info.guid
+    return type(guid)=="string" and guid:sub(1,7)=="Player-" and guid or nil
+end
 
-local function ResolveSpyName(raw)
-    if not raw or raw == "" then return nil end
-    if SpyPerCharDB and SpyPerCharDB.PlayerData and SpyPerCharDB.PlayerData[raw] then return raw end
-    if Spy.NearbyList and Spy.NearbyList[raw] then return raw end
-
-    local rawLower=Lower(raw)
-    local rawBase=Lower(BaseName(raw))
-    local exactBase=nil
-    local matches=0
-    local matchedKeys={}
-    local function scan(tbl)
-        if type(tbl)~="table" then return end
-        for key in pairs(tbl) do
-            if Lower(key)==rawLower then return key,true end
-            if Lower(BaseName(key))==rawBase and not matchedKeys[key] then
-                matchedKeys[key]=true; exactBase=key; matches=matches+1
-            end
-        end
+local function ResolveSpyName(raw,guid)
+    if not raw or raw=="" then return nil end
+    local data=SpyPerCharDB and SpyPerCharDB.PlayerData or {}
+    local exactGUID=KnownGUID(data[raw])
+    if guid and exactGUID==guid then return raw end
+    if raw:find("-",1,true) and (data[raw] or (Spy.NearbyList and Spy.NearbyList[raw])) and (not exactGUID or exactGUID==guid) then return raw end
+    local keys={}
+    for key in pairs(data) do keys[key]=true end
+    for key in pairs(Spy.NearbyList or {}) do keys[key]=true end
+    local exact,base,baseCount=nil,nil,0
+    for key in pairs(keys) do
+        local info=data[key]
+        local known=KnownGUID(info)
+        if guid and known==guid then return key end
+        local compatible=not known or known==guid
+        if compatible and Lower(key)==Lower(raw) then exact=key end
+        if compatible and Lower(BaseName(key))==Lower(BaseName(raw)) then base=key; baseCount=baseCount+1 end
     end
-    local key,found=scan(Spy.NearbyList); if found then return key end
-    key,found=scan(SpyPerCharDB and SpyPerCharDB.PlayerData); if found then return key end
-    if matches==1 then return exactBase end
+    if exact then return exact end
+    -- An explicit realm is part of identity. Never strip it to attach a timer
+    -- to another realm. Unqualified names may match only one known identity.
+    if not raw:find("-",1,true) and baseCount==1 then return base end
     return raw
 end
 
 local function MapRecord(r)
     if not r or not r.name then return end
-    local key=ResolveSpyName(r.voidMarkName or r.name)
+    local key=ResolveSpyName(r.name,r.guid)
     r.voidMarkName=key
     Spy.RunBackPinned[key]=r.guid
     RB.byVoidMarkName[Lower(key)]=r.guid
-    RB.byVoidMarkName[Lower(BaseName(key))]=r.guid
     return key
-end
-
-function Spy:IsRunBackPinned(name)
-    if not name then return false end
-    local guid=Spy.RunBackPinned[name]
-    if guid and RB.active and RB.active[guid] then return true end
-    local g=RB.byVoidMarkName[Lower(name)] or RB.byVoidMarkName[Lower(BaseName(name))]
-    return g and RB.active and RB.active[g] ~= nil or false
 end
 
 function Spy:GetRunBackRecord(name)
     if not name or not RB.active then return nil end
-    local guid=Spy.RunBackPinned[name] or RB.byVoidMarkName[Lower(name)] or RB.byVoidMarkName[Lower(BaseName(name))]
-    local r=guid and RB.active[guid] or nil
-    if r then return r end
-    -- Defensive fallback for pre-integration restored timers.
-    local base=Lower(BaseName(name))
-    for _,record in pairs(RB.active) do
-        if Lower(BaseName(record.voidMarkName or record.name))==base then
-            MapRecord(record)
-            return record
+    local data=SpyPerCharDB and SpyPerCharDB.PlayerData
+    local info=data and data[name]
+    local guid=KnownGUID(info)
+    if guid then return RB.active[guid] end
+    local full=Lower(name)
+    local qualified=name:find("-",1,true)~=nil
+    local found
+    for _,r in pairs(RB.active) do
+        local key=r.voidMarkName or r.name
+        local matches=qualified and (Lower(key)==full or Lower(r.name)==full)
+            or (not qualified and (Lower(BaseName(key))==full or Lower(BaseName(r.name))==full))
+        if matches then
+            if found and found.guid~=r.guid then return nil end
+            found=r
         end
     end
+    return found
+end
+
+function Spy:IsRunBackPinned(name)
+    return self:GetRunBackRecord(name)~=nil
 end
 
 local function Clock(seconds)
@@ -78,7 +83,7 @@ end
 
 function Spy:GetRunBackDisplay(name)
     local r=self:GetRunBackRecord(name)
-    if not r or type(r.readyAt)~="number" then return nil end
+    if not r or not RB:Finite(r.readyAt) then return nil end
     local now=RB:Now()
     local delta=r.readyAt-now
     if delta>0 then
@@ -96,7 +101,7 @@ end
 -- race alert when configured, otherwise the standard nearby ping.
 function Spy:OnRunBackRezConfirmed(r, unit)
     if not r then return end
-    local name=r.voidMarkName or ResolveSpyName(r.name)
+    local name=r.voidMarkName or ResolveSpyName(r.name,r.guid)
     if not name then return end
 
     local now=time()
@@ -133,6 +138,14 @@ function Spy:OnRunBackRezConfirmed(r, unit)
     end
 end
 
+function RB:OnVoidMarkRezConfirmed(r,unit)
+    Spy:OnRunBackRezConfirmed(r,unit)
+    if not InCombatLockdown() and Spy.db and Spy.db.profile and Spy.db.profile.CurrentList==1 then
+        Spy:RefreshCurrentList()
+        if Spy.UpdateActiveCount then Spy:UpdateActiveCount() end
+    end
+end
+
 function RB:OnVoidMarkTimerCreated(r, restored)
     local name=MapRecord(r)
     if not name then return end
@@ -156,11 +169,14 @@ end
 
 function RB:OnVoidMarkTimerRemoved(r, reason)
     if not r then return end
-    local name=r.voidMarkName or ResolveSpyName(r.name)
+    local name=r.voidMarkName or ResolveSpyName(r.name,r.guid)
     if not name then return end
     if Spy.RunBackPinned[name]==r.guid then Spy.RunBackPinned[name]=nil end
     if RB.byVoidMarkName[Lower(name)]==r.guid then RB.byVoidMarkName[Lower(name)]=nil end
-    if RB.byVoidMarkName[Lower(BaseName(name))]==r.guid then RB.byVoidMarkName[Lower(BaseName(name))]=nil end
+
+    -- Another GUID may still own this exact row after a replacement.
+    local owner=Spy:GetRunBackRecord(name)
+    if owner and owner.guid~=r.guid then return end
 
     -- If the enemy has actually been detected again recently, hand the row back
     -- to normal VoidMark expiration. Otherwise remove the dead pinned row now.
