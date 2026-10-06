@@ -2337,8 +2337,8 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 		end
 
 		-- Gank Tracker assist credit:
-		-- If a hostile player dies while we have an active Taliaa threat fight
-		-- with them, count the gank even when somebody else got the killing blow.
+		-- If a hostile player dies after we damaged them recently, count the
+		-- gank even when somebody else got the killing blow.
 		if event == "UNIT_DIED" and dstName and dstGUID then
 			-- Classic Era 1.15.9 observation: a real Hunter death sends PARTY_KILL
 			-- before UNIT_DIED; Feign sends UNIT_DIED alone with unconscious=false.
