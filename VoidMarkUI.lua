@@ -12,7 +12,6 @@ VM.PURPLE = {0.56, 0.20, 0.82}
 VM.PURPLE_BRIGHT = {0.76, 0.42, 1.00}
 VM.BG = {0.015, 0.010, 0.025, 0.97}
 VM.ROW_UNKNOWN = {0.075, 0.075, 0.095}
-VM.ROW_LOW = {0.025, 0.17, 0.09}
 VM.ROW_KOS = {0.38, 0.035, 0.05}
 VM.ROW_STEALTH = {0.20, 0.045, 0.31}
 
@@ -781,16 +780,16 @@ function VM:StyleRow(num, name, desc, opacity)
     row.RightText:SetText(levelText)
     row.RightText:SetTextColor(0.90, 0.90, 0.94, opacity or 1)
 
-    if not row.VoidMarkThreatText then
-        row.VoidMarkThreatText = row.StatusBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        row.VoidMarkThreatText:SetJustifyH("RIGHT")
-        MatchRightFont(row.VoidMarkThreatText)
+    if not row.VoidMarkStatusText then
+        row.VoidMarkStatusText = row.StatusBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.VoidMarkStatusText:SetJustifyH("RIGHT")
+        MatchRightFont(row.VoidMarkStatusText)
     end
-    row.VoidMarkThreatText:ClearAllPoints()
-    row.VoidMarkThreatText:SetPoint("RIGHT", row.RightText, "LEFT", -3, 0)
-    row.VoidMarkThreatText:SetWidth(42)
-    row.VoidMarkThreatText:SetText(status)
-    row.VoidMarkThreatText:SetTextColor(0.90, 0.90, 0.94, opacity or 1)
+    row.VoidMarkStatusText:ClearAllPoints()
+    row.VoidMarkStatusText:SetPoint("RIGHT", row.RightText, "LEFT", -3, 0)
+    row.VoidMarkStatusText:SetWidth(42)
+    row.VoidMarkStatusText:SetText(status)
+    row.VoidMarkStatusText:SetTextColor(0.90, 0.90, 0.94, opacity or 1)
 
     if not row.VoidMarkRunBackTime then
         row.VoidMarkRunBackTime = row.StatusBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -799,7 +798,7 @@ function VM:StyleRow(num, name, desc, opacity)
         MatchRightFont(row.VoidMarkRunBackTime)
     end
     row.VoidMarkRunBackTime:ClearAllPoints()
-    row.VoidMarkRunBackTime:SetPoint("RIGHT", row.VoidMarkThreatText, "LEFT", -4, 0)
+    row.VoidMarkRunBackTime:SetPoint("RIGHT", row.VoidMarkStatusText, "LEFT", -4, 0)
     row.VoidMarkRunBackTime:SetWidth(48)
     row.VoidMarkRunBackTime:SetText(runBackColor .. runBackTime .. "|r")
     row.VoidMarkRunBackTime:SetTextColor(1, 1, 1, opacity or 1)
@@ -899,14 +898,11 @@ function VM:CreateDetailsFrame()
     SetFont(f.Name, "Fonts\\FRIZQT__.TTF", 12, "OUTLINE", GameFontNormal)
 
     f.LevelClass = CreateDetailLabel(f, -50, "Identity")
-    f.Threat = CreateDetailLabel(f, -67, "Threat")
-    f.Record = CreateDetailLabel(f, -84, "Fight Record")
-    f.Lifetime = CreateDetailLabel(f, -101, "Lifetime")
+    f.Lifetime = CreateDetailLabel(f, -67, "Lifetime")
     f.Ganks = f.Lifetime
-    f.Damage = CreateDetailLabel(f, -118, "Damage")
-    f.LastSeen = CreateDetailLabel(f, -135, "Last Seen")
-    f.Location = CreateDetailLabel(f, -152, "Location")
-    f.Note = CreateDetailLabel(f, -169, "Note")
+    f.LastSeen = CreateDetailLabel(f, -84, "Last Seen")
+    f.Location = CreateDetailLabel(f, -101, "Location")
+    f.Note = CreateDetailLabel(f, -118, "Note")
 
     f.TargetButton = CreateFrame("Button", nil, f, "BackdropTemplate")
     f.TargetButton:SetSize(72, 20)
@@ -992,12 +988,7 @@ function Spy:ShowVoidMarkDetails(name)
     local identity = "L" .. tostring(data.level or "?") .. " " .. tostring(data.class and (RAID_CLASS_COLORS[data.class] and data.class or data.class) or "Unknown")
     f.LevelClass:SetText(identity)
 
-    if f.Threat then f.Threat:Hide() end
-    if f.Record then f.Record:Hide() end
-    if f.Damage then f.Damage:Hide() end
-
-    -- Lifetime is the old Spy/gank history. Keep it separate from the newer
-    -- fight-based threat record so archived kills do not appear to vanish.
+    -- Lifetime VoidMark history remains the authoritative player record.
     local kills = tonumber(data.wins) or 0
     local deaths = tonumber(data.loses) or 0
     if TaliaaGankRepository and TaliaaGankRepository.GetHistoricalStats then
