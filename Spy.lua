@@ -837,7 +837,7 @@ Spy.options = {
 				},
 				IgnoreBattlegroundStats = {
 					name = "Ignore battleground PvP for stats",
-					desc = "When enabled, battleground kills and deaths are not written to VoidMark kill/death history, W/L records, session K/D, streaks, or fight records. Enemy detection still works in battlegrounds.",
+					desc = "When enabled, battleground kills and deaths are not written to VoidMark kill/death history, W/L records, session K/D, or streaks. Enemy detection still works in battlegrounds.",
 					type = "toggle",
 					order = 2,
 					width = "full",
@@ -1227,6 +1227,14 @@ function Spy:CheckDatabase()
 	-- TaliaaSpy player/KOS database. Cross-account sync is handled in a later stage.
 	if not SpyPerCharDB.HuntData then
 		SpyPerCharDB.HuntData = {}
+	end
+
+	-- Remove retired threat/fight telemetry from existing player records.
+	-- Lifetime wins/losses remain in playerData.wins/playerData.loses.
+	for _, playerData in pairs(SpyPerCharDB.PlayerData) do
+		if type(playerData) == "table" then
+			playerData.threatData = nil
+		end
 	end
 
 	--------------------------------------------------
@@ -2159,34 +2167,20 @@ end
 
 
 --------------------------------------------------
--- TALIAA SPY THREAT TRACKING
--- Uses Spy's existing combat log / death events.
+-- VOIDMARK PVP ENGAGEMENT TRACKING
+-- Lightweight recent-damage timestamps used only for kill/death attribution.
+-- No threat score, confidence, fight telemetry, or damage totals are stored.
 --------------------------------------------------
 
-Spy.ThreatCombat = Spy.ThreatCombat or {}
-Spy.ThreatDebug = false
-
-local TALIAA_THREAT_DEATH_CREDIT_WINDOW = 10
-local TALIAA_THREAT_FIGHT_TIMEOUT = 15
-local TALIAA_THREAT_POST_FIGHT_LOCKOUT = 3
-
--- Prevent trailing combat-log events from immediately reopening
--- an encounter that just ended as a WIN or LOSS.
-Spy.ThreatFightLockout = Spy.ThreatFightLockout or {}
-
--- Gank credit is kept separate from the active threat fight.
--- This lets a player still count as a gank if they die from your DoT
--- or shortly after combat drops.
 Spy.GankRecentDamage = Spy.GankRecentDamage or {}
-local TALIAA_GANK_CREDIT_WINDOW = 30
+Spy.RecentEnemyDamage = Spy.RecentEnemyDamage or {}
 
-local function TaliaaThreatPrint(message)
-	if Spy.ThreatDebug then
-		DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[Taliaa Threat]|r " .. tostring(message))
-	end
-end
+local VOIDMARK_DEATH_CREDIT_WINDOW = 10
+local VOIDMARK_GANK_CREDIT_WINDOW = 30
+local VOIDMARK_RECENT_COMBAT_RETENTION = 60
+local VoidMarkLastPvPPrune = 0
 
-local function TaliaaThreatIsHostilePlayer(flags, guid)
+local function VoidMarkIsHostilePlayer(flags, guid)
 	if not flags or not guid then
 		return false
 	end
@@ -2196,210 +2190,7 @@ local function TaliaaThreatIsHostilePlayer(flags, guid)
 	return bit.band(flags, COMBATLOG_OBJECT_REACTION_HOSTILE) == COMBATLOG_OBJECT_REACTION_HOSTILE
 end
 
-local function TaliaaThreatGetPlayerData(player)
-	if not player or not SpyPerCharDB or not SpyPerCharDB.PlayerData then
-		return nil
-	end
-
-	local playerData = SpyPerCharDB.PlayerData[player]
-	if not playerData then
-		return nil
-	end
-
-	if not playerData.threatData then
-		playerData.threatData = {}
-	end
-
-	local threat = playerData.threatData
-	if not threat.fights then threat.fights = 0 end
-	if not threat.wins then threat.wins = 0 end
-	if not threat.losses then threat.losses = 0 end
-	if not threat.disengaged then threat.disengaged = 0 end
-	if not threat.interrupted then threat.interrupted = 0 end
-	if not threat.damageDone then threat.damageDone = 0 end
-	if not threat.damageTaken then threat.damageTaken = 0 end
-	if not threat.totalCombatTime then threat.totalCombatTime = 0 end
-	if not threat.totalWinTime then threat.totalWinTime = 0 end
-	if not threat.totalLossTime then threat.totalLossTime = 0 end
-	if not threat.threatScore then threat.threatScore = 0 end
-	if not threat.threatLevel then threat.threatLevel = 0 end
-
-	return playerData
-end
-
-
-local function TaliaaClamp(value, low, high)
-	if value < low then return low end
-	if value > high then return high end
-	return value
-end
-
-local function TaliaaThreatLabel(score)
-	if score >= 81 then
-		return "EXTREME", "|cffff0000"
-	elseif score >= 61 then
-		return "DANGEROUS", "|cffff7f00"
-	elseif score >= 41 then
-		return "EVEN", "|cffffff00"
-	elseif score >= 21 then
-		return "FAVORABLE", "|cff00ff00"
-	else
-		return "EASY", "|cff66ff66"
-	end
-end
-
-local function TaliaaThreatConfidence(completed)
-	if completed >= 10 then
-		return "High"
-	elseif completed >= 5 then
-		return "Moderate"
-	elseif completed >= 2 then
-		return "Low"
-	else
-		return "Very Low"
-	end
-end
-
-function Spy:CalculateThreatScore(player)
-	local playerData = TaliaaThreatGetPlayerData(player)
-	if not playerData then return 50, "UNKNOWN", "No Data" end
-	local t = playerData.threatData
-	local wins, losses = t.wins or 0, t.losses or 0
-	local completed = wins + losses
-	local score, level = 50, "UNKNOWN"
-	if completed > 0 then
-		score = math.floor(((losses / completed) * 100) + 0.5)
-		if wins > losses then level = "LOW"
-		elseif losses > wins then level = "HIGH"
-		else level = "EVEN" end
-	end
-	local confidence = completed == 0 and "No Data" or TaliaaThreatConfidence(completed)
-	t.threatScore, t.threatLevel, t.threatConfidence = score, level, confidence
-	t.lastThreatUpdate = time()
-	return score, level, confidence
-end
-
-function Spy:StartThreatFight(player)
-	if not player then
-		return nil
-	end
-
-	-- Do not let delayed combat-log events create a new encounter
-	-- after the player has already died or released.
-	if UnitIsDeadOrGhost("player") then
-		return nil
-	end
-
-	local lockoutUntil = Spy.ThreatFightLockout[player]
-	if lockoutUntil then
-		if GetTime() < lockoutUntil then
-			return nil
-		end
-		Spy.ThreatFightLockout[player] = nil
-	end
-
-	local fight = Spy.ThreatCombat[player]
-	if not fight then
-		local now = GetTime()
-		fight = {
-			startTime = now,
-			lastEventTime = now,
-			lastTakenTime = nil,
-			damageDone = 0,
-			damageTaken = 0,
-		}
-		Spy.ThreatCombat[player] = fight
-		TaliaaThreatPrint("Fight started: " .. player)
-	end
-
-	return fight
-end
-
-function Spy:FinishThreatFight(player, result)
-	local fight = Spy.ThreatCombat[player]
-	if not fight then
-		return
-	end
-
-	if Spy:ShouldIgnoreBattlegroundStats() then
-		Spy.ThreatCombat[player] = nil
-		return
-	end
-
-	local playerData = TaliaaThreatGetPlayerData(player)
-	if not playerData then
-		Spy.ThreatCombat[player] = nil
-		return
-	end
-
-	local threat = playerData.threatData
-	local duration = GetTime() - fight.startTime
-	if duration < 0.1 then
-		duration = 0.1
-	end
-
-	threat.fights = threat.fights + 1
-	threat.damageDone = threat.damageDone + fight.damageDone
-	threat.damageTaken = threat.damageTaken + fight.damageTaken
-	threat.totalCombatTime = threat.totalCombatTime + duration
-	threat.lastFightTime = time()
-	threat.lastResult = result
-
-	if result == "WIN" then
-		threat.wins = threat.wins + 1
-		threat.totalWinTime = threat.totalWinTime + duration
-		if not threat.fastestWin or duration < threat.fastestWin then
-			threat.fastestWin = duration
-		end
-	elseif result == "LOSS" then
-		threat.losses = threat.losses + 1
-		threat.totalLossTime = threat.totalLossTime + duration
-		if not threat.fastestLoss or duration < threat.fastestLoss then
-			threat.fastestLoss = duration
-		end
-	elseif result == "INTERRUPTED" then
-		threat.interrupted = threat.interrupted + 1
-	else
-		threat.disengaged = threat.disengaged + 1
-	end
-
-	local completedFights = threat.wins + threat.losses
-	local threatScore, threatLevel, confidence = Spy:CalculateThreatScore(player)
-	local _, threatColor = TaliaaThreatLabel(threatScore)
-
-	-- Threat results are stored and remain available to the Spy window/tooltip,
-	-- but completed fights no longer print a summary to the normal chat frame.
-	if Spy.ThreatDebug and result ~= "WIN" and result ~= "LOSS" then
-		TaliaaThreatPrint(string.format(
-			"%s | %s | %.1fs | Done: %d | Taken: %d",
-			player,
-			result,
-			duration,
-			fight.damageDone,
-			fight.damageTaken
-		))
-	end
-
-	Spy.ThreatCombat[player] = nil
-
-	-- Only completed fights get the short lockout. A normal disengagement
-	-- can reopen immediately if actual PvP damage resumes.
-	if result == "WIN" or result == "LOSS" then
-		Spy.ThreatFightLockout[player] = GetTime() + TALIAA_THREAT_POST_FIGHT_LOCKOUT
-	end
-end
-
-function Spy:FinishAllThreatFights(result)
-	local players = {}
-	for player in pairs(Spy.ThreatCombat) do
-		table.insert(players, player)
-	end
-	for _, player in ipairs(players) do
-		Spy:FinishThreatFight(player, result or "DISENGAGED")
-	end
-end
-
-local function TaliaaThreatDamageAmount(event, arg12, arg13, arg14, arg15)
+local function VoidMarkDamageAmount(event, arg12, arg13, arg14, arg15)
 	if event == "SWING_DAMAGE" then
 		return tonumber(arg12) or 0
 	elseif event == "RANGE_DAMAGE"
@@ -2411,181 +2202,52 @@ local function TaliaaThreatDamageAmount(event, arg12, arg13, arg14, arg15)
 	return 0
 end
 
-local function TaliaaThreatTrackDamage(event, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, arg12, arg13, arg14, arg15)
-	local amount = TaliaaThreatDamageAmount(event, arg12, arg13, arg14, arg15)
+local function VoidMarkPruneRecentPvP(now)
+	if (now - VoidMarkLastPvPPrune) < 10 then
+		return
+	end
+	VoidMarkLastPvPPrune = now
+
+	for player, stamp in pairs(Spy.GankRecentDamage) do
+		if (now - (tonumber(stamp) or 0)) > VOIDMARK_RECENT_COMBAT_RETENTION then
+			Spy.GankRecentDamage[player] = nil
+		end
+	end
+	for player, stamp in pairs(Spy.RecentEnemyDamage) do
+		if (now - (tonumber(stamp) or 0)) > VOIDMARK_RECENT_COMBAT_RETENTION then
+			Spy.RecentEnemyDamage[player] = nil
+		end
+	end
+end
+
+local function VoidMarkTrackPvPDamage(event, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, arg12, arg13, arg14, arg15)
+	local amount = VoidMarkDamageAmount(event, arg12, arg13, arg14, arg15)
 	if amount <= 0 then
 		return
 	end
 
 	local playerGUID = UnitGUID("player")
 	local now = GetTime()
+	VoidMarkPruneRecentPvP(now)
 
-	-- You damaged a hostile player.
+	-- We damaged a hostile player: retain a short assist-credit window.
 	if srcGUID == playerGUID
 		and dstName
-		and TaliaaThreatIsHostilePlayer(dstFlags, dstGUID)
+		and VoidMarkIsHostilePlayer(dstFlags, dstGUID)
 	then
-		-- Keep independent gank-credit history even if the active
-		-- threat encounter later times out or combat drops.
 		Spy.GankRecentDamage[dstName] = now
-
-		local fight = Spy:StartThreatFight(dstName)
-		if fight then
-			fight.damageDone = fight.damageDone + amount
-			fight.lastEventTime = now
-		end
 		return
 	end
 
-	-- A hostile player damaged you.
+	-- A hostile player damaged us: retain only the most recent hit time so a
+	-- PLAYER_DEAD event can assign the lifetime loss to the likely killer.
 	if dstGUID == playerGUID
 		and srcName
-		and TaliaaThreatIsHostilePlayer(srcFlags, srcGUID)
+		and VoidMarkIsHostilePlayer(srcFlags, srcGUID)
 	then
-		local fight = Spy:StartThreatFight(srcName)
-		if fight then
-			fight.damageTaken = fight.damageTaken + amount
-			fight.lastEventTime = now
-			fight.lastTakenTime = now
-		end
+		Spy.RecentEnemyDamage[srcName] = now
 	end
 end
-
-SLASH_TALIAATHREAT1 = "/tthreat"
-SlashCmdList["TALIAATHREAT"] = function(msg)
-	local command = strlower(msg or "")
-
-	if command == "" or command == "status" then
-		local count = 0
-		for _ in pairs(Spy.ThreatCombat) do
-			count = count + 1
-		end
-		DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[Taliaa Threat]|r Active fights: " .. count)
-		return
-	end
-
-	if command == "debug" then
-		Spy.ThreatDebug = not Spy.ThreatDebug
-		DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[Taliaa Threat]|r Debug: " .. tostring(Spy.ThreatDebug))
-		return
-	end
-
-	if command == "target" then
-		local name, realm = UnitName("target")
-		if not name then
-			DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[Taliaa Threat]|r No target.")
-			return
-		end
-
-		if realm and realm ~= "" then
-			name = name .. "-" .. realm
-		end
-
-		local playerData = SpyPerCharDB
-			and SpyPerCharDB.PlayerData
-			and SpyPerCharDB.PlayerData[name]
-
-		if not playerData or not playerData.threatData then
-			DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[Taliaa Threat]|r No threat data for " .. name)
-			return
-		end
-
-		local threat = playerData.threatData
-		local wins = threat.wins or 0
-		local losses = threat.losses or 0
-		local disengaged = threat.disengaged or 0
-		local interrupted = threat.interrupted or 0
-		local encounters = threat.fights or 0
-		local completed = wins + losses
-		local winRate = 0
-		local avgEncounter = 0
-		local avgWin = 0
-		local avgLoss = 0
-
-		if completed > 0 then
-			winRate = (wins / completed) * 100
-		end
-		if encounters > 0 then
-			avgEncounter = (threat.totalCombatTime or 0) / encounters
-		end
-		if wins > 0 then
-			avgWin = (threat.totalWinTime or 0) / wins
-		end
-		if losses > 0 then
-			avgLoss = (threat.totalLossTime or 0) / losses
-		end
-
-		local score, level, confidence = Spy:CalculateThreatScore(name)
-		local _, threatColor = TaliaaThreatLabel(score)
-
-		DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[Taliaa Threat]|r " .. name)
-		DEFAULT_CHAT_FRAME:AddMessage(string.format(
-			"|cff00ff00[Taliaa Threat]|r Threat: %s%s %d/100|r | Confidence: %s",
-			threatColor,
-			level,
-			score,
-			confidence
-		))
-		DEFAULT_CHAT_FRAME:AddMessage(string.format(
-			"|cff00ff00[Taliaa Threat]|r Record: %dW-%dL | Completed: %d | Win Rate: %.0f%%",
-			wins,
-			losses,
-			completed,
-			winRate
-		))
-		DEFAULT_CHAT_FRAME:AddMessage(string.format(
-			"|cff00ff00[Taliaa Threat]|r Avg Encounter: %.1fs | Avg Win: %.1fs | Avg Loss: %.1fs",
-			avgEncounter,
-			avgWin,
-			avgLoss
-		))
-		DEFAULT_CHAT_FRAME:AddMessage(string.format(
-			"|cff00ff00[Taliaa Threat]|r Damage Done: %d | Taken: %d",
-			threat.damageDone or 0,
-			threat.damageTaken or 0
-		))
-		DEFAULT_CHAT_FRAME:AddMessage(string.format(
-			"|cff00ff00[Taliaa Threat]|r Disengaged: %d | Interrupted: %d | Total Encounters: %d",
-			disengaged,
-			interrupted,
-			encounters
-		))
-		return
-	end
-
-	DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[Taliaa Threat]|r Commands: /tthreat status, /tthreat target, /tthreat debug")
-end
-
---------------------------------------------------
--- END TALIAA SPY THREAT TRACKING
---------------------------------------------------
-
-
--- Close unresolved PvP encounters only after 15 seconds without
--- direct damage between you and that enemy.
-local TaliaaThreatTimeoutFrame = CreateFrame("Frame")
-local TaliaaThreatTimeoutElapsed = 0
-
-TaliaaThreatTimeoutFrame:SetScript("OnUpdate", function(self, elapsed)
-	TaliaaThreatTimeoutElapsed = TaliaaThreatTimeoutElapsed + elapsed
-	if TaliaaThreatTimeoutElapsed < 1 then
-		return
-	end
-	TaliaaThreatTimeoutElapsed = 0
-
-	local now = GetTime()
-	local expired = {}
-
-	for player, fight in pairs(Spy.ThreatCombat) do
-		if fight.lastEventTime and (now - fight.lastEventTime) >= TALIAA_THREAT_FIGHT_TIMEOUT then
-			table.insert(expired, player)
-		end
-	end
-
-	for _, player in ipairs(expired) do
-		Spy:FinishThreatFight(player, "DISENGAGED")
-	end
-end)
 
 function Spy:CombatLogEvent(info, timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGUID, dstName, dstFlags, destRaidFlags, ...)
 timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGUID, dstName, dstFlags, destRaidFlags, arg12, arg13, arg14, arg15, arg16 = CombatLogGetCurrentEventInfo()
@@ -2669,9 +2331,9 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 			end
 		end
 
-		-- Taliaa Spy: track direct player-vs-player damage using Spy's existing combat event
+		-- Track only the recent PvP timestamps needed for kill/death attribution.
 		if combatEvent[event] then
-			TaliaaThreatTrackDamage(event, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, arg12, arg13, arg14, arg15)
+			VoidMarkTrackPvPDamage(event, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, arg12, arg13, arg14, arg15)
 		end
 
 		-- Gank Tracker assist credit:
@@ -2716,25 +2378,13 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 			local recentlyEngaged = recentDamage
 				and (GetTime() - recentDamage) <= TALIAA_GANK_CREDIT_WINDOW
 
-			if isPlayerVictim and isEnemyVictim
-				and (recentlyEngaged or Spy.ThreatCombat[dstName])
-			then
+			if isPlayerVictim and isEnemyVictim and recentlyEngaged then
 				-- Count the gank immediately, even if somebody else got the KB.
 				if TaliaaGankTracker and TaliaaGankTracker.RecordKill then
 					TaliaaGankTracker:RecordKill(dstName, dstGUID, false)
 				end
 				Spy.GankRecentDamage[dstName] = nil
 
-				-- Do NOT close the threat fight immediately. PARTY_KILL can arrive
-				-- just after UNIT_DIED. Give it a moment so a real KB becomes WIN.
-				if Spy.ThreatCombat[dstName] then
-					local deadName = dstName
-					C_Timer.After(0.30, function()
-						if Spy.ThreatCombat[deadName] then
-							Spy:FinishThreatFight(deadName, "INTERRUPTED")
-						end
-					end)
-				end
 			end
 		end
 
@@ -2804,48 +2454,12 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 				end
 				Spy.GankRecentDamage[dstName] = nil
 
-				-- Personal threat WIN only when YOUR character got the KB.
 				-- Lifetime wins are owned by GankRepository/RecordKill; do not
 				-- increment PlayerData.wins here or the same death is counted twice.
-				if sourceIsPlayer then
-					if Spy.ThreatCombat[dstName] then
-						Spy:FinishThreatFight(dstName, "WIN")
-					end
-				end
 			end
 		end
 
-		-- adds pet kills to the win stats
-		if combatEvent[event] then
-			if event == "SWING_DAMAGE" then
-				if arg13 == nil then
-					overkill = 0
-				else
-					overkill = arg13
-				end
-			else
-				if arg16 == nil then
-					overkill = 0
-				else
-					overkill = arg16
-				end
-			end
-			if (overkill > 1) and dstName then
-				if Spy.PetGUID[srcGUID] then
-					local playerData = SpyPerCharDB.PlayerData[dstName]
-					if playerData then
-						-- RecordKill/GankRepository owns lifetime win accounting.
-						-- Pet/guardian killing blows may still finish the personal
-						-- threat fight, but must not increment PlayerData.wins.
-						if Spy.ThreatCombat[dstName] then
-							Spy:FinishThreatFight(dstName, "WIN")
-						end
---							PlaySoundFile("Interface\\AddOns\\Spy\\Sounds\\neck-snap.mp3", Spy.db.profile.SoundChannel)
---							DEFAULT_CHAT_FRAME:AddMessage("Your pet/guardian killed " .. dstName);
-					end
-				end
-			end
-		end
+
 		if event == "SPELL_SUMMON" and srcName == Spy.CharacterName then
 			local petGUID = dstGUID
 			Spy.PetGUID[petGUID] = time()
@@ -2861,8 +2475,6 @@ end
 
 function Spy:LeftCombatEvent()
 	Spy.LastAttack = nil
-	-- Do not close Taliaa threat fights here.
-	-- Classic Era players can briefly leave combat and immediately re-engage.
 	Spy:RefreshCurrentList()
 	if Spy.ClearCombatSightings then
 		Spy:ClearCombatSightings()
@@ -2871,25 +2483,24 @@ end
 
 function Spy:PlayerDeadEvent()
 	if Spy:ShouldIgnoreBattlegroundStats() then
-		-- Drop any active fight state without writing BG losses/fight records.
-		Spy.ThreatCombat = {}
+		for player in pairs(Spy.RecentEnemyDamage or {}) do
+			Spy.RecentEnemyDamage[player] = nil
+		end
 		return
 	end
-	-- Taliaa Spy: use the most recent hostile-player damage within 10 seconds
-	-- as the loss owner. The old Spy path required the final hostile event to land
-	-- within 0.5s of PLAYER_DEAD, which missed many normal PvP deaths and left the
-	-- compact lifetime record's loss side artificially low.
+
+	-- Assign the lifetime loss to the hostile player who damaged us most
+	-- recently inside the short death-credit window.
 	local now = GetTime()
 	local killer = nil
 	local newestHit = 0
 
-	for player, fight in pairs(Spy.ThreatCombat) do
-		if fight.lastTakenTime then
-			local age = now - fight.lastTakenTime
-			if age <= TALIAA_THREAT_DEATH_CREDIT_WINDOW and fight.lastTakenTime > newestHit then
-				newestHit = fight.lastTakenTime
-				killer = player
-			end
+	for player, hitTime in pairs(Spy.RecentEnemyDamage or {}) do
+		local stamp = tonumber(hitTime) or 0
+		local age = now - stamp
+		if age <= VOIDMARK_DEATH_CREDIT_WINDOW and stamp > newestHit then
+			newestHit = stamp
+			killer = player
 		end
 	end
 
@@ -2898,19 +2509,12 @@ function Spy:PlayerDeadEvent()
 		if playerData then
 			playerData.loses = (tonumber(playerData.loses) or 0) + 1
 		end
+	end
 
-		Spy:FinishThreatFight(killer, "LOSS")
-
-		-- Any other active enemy encounters were not responsible for the death.
-		if next(Spy.ThreatCombat) then
-			Spy:FinishAllThreatFights("INTERRUPTED")
-		end
-	else
-		-- Player died, but no active enemy player qualifies for kill credit
-		-- (guards, mobs, environment, etc.). Preserve the encounter as interrupted.
-		if next(Spy.ThreatCombat) then
-			Spy:FinishAllThreatFights("INTERRUPTED")
-		end
+	-- A death ends the attribution window; do not let stale hits leak into the
+	-- next death.
+	for player in pairs(Spy.RecentEnemyDamage or {}) do
+		Spy.RecentEnemyDamage[player] = nil
 	end
 end
 
