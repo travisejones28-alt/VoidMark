@@ -11,6 +11,9 @@ local label=banner:CreateFontString(nil,"OVERLAY","GameFontNormalHuge")
 label:SetAllPoints()
 banner:Hide()
 local token=0
+local visibleNames={}
+local visibleKeys={}
+local bannerExpires=0
 
 local function Init()
     if not SpyDB then return end
@@ -59,11 +62,29 @@ local function Notify(owner,name,level,class,zone,reason)
         .." Lv"..tostring(level or "?").." "..Clean(class,24).." in "..Clean(zone,70)
     if reason and reason~="" then msg=msg.." | Reason: "..Clean(reason,80) end
     DEFAULT_CHAT_FRAME:AddMessage(msg)
+    -- Keep all alerts in the same 10-second display window, separated by commas.
+    -- A distinct owner/name pair is displayed once, even if several WHO packets arrive.
+    if now >= bannerExpires then
+        visibleNames={}
+        visibleKeys={}
+    end
+    local displayKey=who:lower()..":"..Short(name):lower()
+    if not visibleKeys[displayKey] then
+        visibleKeys[displayKey]=true
+        visibleNames[#visibleNames+1]=who..": "..Clean(name,48)
+    end
+    bannerExpires=now+10
     token=token+1
     local current=token
-    label:SetText("|cffff5555KOS DETECTED|r\n"..who..": "..Clean(name,48))
+    label:SetText("|cffff5555KOS DETECTED|r\n"..table.concat(visibleNames,", "))
     banner:Show()
-    C_Timer.After(5,function() if token==current then banner:Hide() end end)
+    C_Timer.After(10,function()
+        if token==current then
+            banner:Hide()
+            visibleNames={}
+            visibleKeys={}
+        end
+    end)
     if db.sound and PlaySound then
         pcall(PlaySound,SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959,"Master")
     end
