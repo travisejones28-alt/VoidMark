@@ -272,6 +272,13 @@ local function BuildGearMenu(self, level)
             TaliaaGankTracker:ToggleSapAlertEnabled()
         end
     end)
+    local kosEnabled = SpyDB and SpyDB.VoidMarkKOSWho
+        and SpyDB.VoidMarkKOSWho.enabled ~= false
+    Add(kosEnabled and "KOS Alert: ON" or "KOS Alert: OFF", function()
+        SpyDB = SpyDB or {}
+        SpyDB.VoidMarkKOSWho = SpyDB.VoidMarkKOSWho or {}
+        SpyDB.VoidMarkKOSWho.enabled = not (SpyDB.VoidMarkKOSWho.enabled ~= false)
+    end)
     Add("Taunt", function()
         if VoidMarkTaunt and VoidMarkTaunt.Toggle then VoidMarkTaunt.Toggle() end
     end)
