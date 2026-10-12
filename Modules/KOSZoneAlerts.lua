@@ -71,7 +71,7 @@ local function Notify(owner,name,level,class,zone,reason)
     local displayKey=who:lower()..":"..Short(name):lower()
     if not visibleKeys[displayKey] then
         visibleKeys[displayKey]=true
-        visibleNames[#visibleNames+1]=who..": "..Clean(name,48)
+        visibleNames[#visibleNames+1]=who..": "..Clean(name,48)..((class and tostring(class)~="") and (" ("..Clean(class,24)..")") or "")
     end
     bannerExpires=now+10
     token=token+1
