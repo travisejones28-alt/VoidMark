@@ -104,7 +104,7 @@ local function SendMatch(name,level,class,zone,reason)
         Clean(class,24),Clean(zone,70),db.shareReasons and Clean(reason,80) or ""},"\031"),channel)
 end
 
-local function ReceiveWho(name,level,class,zone)
+local function ReceiveWho(name,level,class,zone,privateRequest)
     if not db then Init() end
     if not db or not db.enabled then return end
     name=Clean(name,65)
@@ -114,7 +114,7 @@ local function ReceiveWho(name,level,class,zone)
     if not data then return end
     local reason=Reason(data)
     Notify("You",name,level,class,zone,reason)
-    SendMatch(name,level,class,zone,reason)
+    if not privateRequest then SendMatch(name,level,class,zone,reason) end
 end
 _G.VoidMarkKOS_OnWhoResult=ReceiveWho
 
@@ -141,16 +141,22 @@ f:SetScript("OnEvent",function(_,event,p,m,channel,sender)
         end
         return
     end
-    if p~=prefix or (channel~="PARTY" and channel~="RAID")
-        or type(m)~="string" or not InOurGroup(sender) then return end
+    if p~=prefix or type(m)~="string" then return end
+    local groupMessage=(channel=="PARTY" or channel=="RAID") and InOurGroup(sender)
+    local guildWhisper=channel=="WHISPER" and IsInGuild()
+    if not groupMessage and not guildWhisper then return end
     local fields={}
     for part in (m.."\031"):gmatch("(.-)\031") do
         fields[#fields+1]=part
         if #fields==6 then break end
     end
-    if fields[1]=="W" then
+    if fields[1]=="G" and guildWhisper then
+        -- Requested WHO roster: only this recipient checks their private KOS
+        -- list. Do not rebroadcast matches to their party.
+        ReceiveWho(fields[3],tonumber(fields[4]),fields[5],fields[2],true)
+    elseif fields[1]=="W" and groupMessage then
         ReceiveWho(fields[3],tonumber(fields[4]),fields[5],fields[2])
-    elseif fields[1]=="K" and fields[2] and fields[5] then
+    elseif fields[1]=="K" and groupMessage and fields[2] and fields[5] then
         -- Don't echo our own party-share message as a second alert.
         if Short(sender):lower()~=Short(UnitName("player")):lower() then
             Notify(Short(sender),fields[2],tonumber(fields[3]),fields[4],fields[5],fields[6])
