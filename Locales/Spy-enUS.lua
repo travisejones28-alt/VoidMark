@@ -4,6 +4,8 @@ if not L then return end
 
 -- Configuration
 L["Spy"] = "VoidMark"
+-- Diagnostic key requested by legacy Spy error reporting.
+L["ToDebugString"] = "ToDebugString"
 L["Version"] = "Version"
 L["Spy Option"] = "VoidMark"
 L["Profiles"] = "Profiles"
