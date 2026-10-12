@@ -2376,7 +2376,7 @@ timestamp, event, hideCaster, srcGUID, srcName, srcFlags, sourceRaidFlags, dstGU
 
 			local recentDamage = Spy.GankRecentDamage[dstName]
 			local recentlyEngaged = recentDamage
-				and (GetTime() - recentDamage) <= TALIAA_GANK_CREDIT_WINDOW
+				and (GetTime() - recentDamage) <= VOIDMARK_GANK_CREDIT_WINDOW
 
 			if isPlayerVictim and isEnemyVictim and recentlyEngaged then
 				-- Count the gank immediately, even if somebody else got the KB.
