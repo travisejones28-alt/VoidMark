@@ -130,7 +130,10 @@ f:SetScript("OnEvent",function(_,event,p,m,channel,sender)
     if fields[1]=="W" then
         ReceiveWho(fields[3],tonumber(fields[4]),fields[5],fields[2])
     elseif fields[1]=="K" and fields[2] and fields[5] then
-        Notify(Short(sender),fields[2],tonumber(fields[3]),fields[4],fields[5],fields[6])
+        -- Don't echo our own party-share message as a second alert.
+        if Short(sender):lower()~=Short(UnitName("player")):lower() then
+            Notify(Short(sender),fields[2],tonumber(fields[3]),fields[4],fields[5],fields[6])
+        end
     end
 end)
 
