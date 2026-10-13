@@ -1,0 +1,26 @@
+name: VoidMark Lua regressions
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lua-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LuaTeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y texlive-binaries
+      - name: Validate addon structure and Lua syntax
+        run: python3 tests/check_structure.py
+      - name: Run kill effects regressions
+        run: luatex --luaonly tests/kill_effects_regression.lua
+      - name: Run existing regressions
+        run: |
+          luatex --luaonly tests/regression.lua
+          luatex --luaonly tests/score_regression.lua
+          luatex --luaonly tests/runback_regression.lua
+          luatex --luaonly tests/runback_routes.lua
