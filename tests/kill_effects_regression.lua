@@ -54,7 +54,7 @@ local function reset(normal, special)
 end
 local function kill(name, guid, delta)
     now = now + (delta or 1)
-    KE:OnKill(name or "Enemy", guid or "Player-Enemy")
+    KE:OnKill(name or "Enemy", guid)
 end
 
 -- The two sound toggles are independently authoritative at all chain lengths.
