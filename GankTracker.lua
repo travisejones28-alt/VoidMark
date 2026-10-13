@@ -4397,10 +4397,10 @@ function GT:IsKnownHunter(name, guid)
 end
 
 MarkHunterFeign = function(guid, name)
-    -- If a kill sound raced ahead of Classic's Feign classification, stop it
-    -- immediately when Feign is confirmed.
+    -- Cancel only this Hunter's sound if Feign was classified after a kill.
+    -- Unrelated kill sounds must continue playing.
     if VoidMarkKillEffects and VoidMarkKillEffects.StopActiveSound then
-        VoidMarkKillEffects:StopActiveSound()
+        VoidMarkKillEffects:StopActiveSound(name, guid)
     end
 
     local now = GetTime()
