@@ -400,7 +400,7 @@ local function BuildUI()
     if frame then return end
     frame=CreateFrame("Frame","VoidMarkEnemyMovesFrame",UIParent,"BackdropTemplate")
     frame:SetSize(FRAME_W,HEADER_H+STATUS_H+10)
-    frame:SetFrameStrata("HIGH")
+    -- Keep the tracker below stock Blizzard bags and interface panels.\n    -- Its cooldown rows inherit this frame strata; the options window remains DIALOG.\n    frame:SetFrameStrata("LOW")
     frame:SetClampedToScreen(true)
     frame:SetMovable(true)
     frame:EnableMouse(true)
