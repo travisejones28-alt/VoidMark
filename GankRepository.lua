@@ -235,7 +235,17 @@ local function EnsureSyncDB()
     local db = SpyDB.TaliaaGankSync
     db.version = 3
     if db.enabled == nil then db.enabled = true end
-    if db.autoPair == nil then db.autoPair = true end
+    -- Migrate older installations away from unsolicited Battle.net friend pairing.
+    -- Historical kill sync requires an explicit pairing action on both clients.
+    if db.pairConsentVersion ~= 1 then
+        db.autoPair = false
+        db.pairConsentVersion = 1
+        db.peerGameAccountID = nil
+        db.peerSessionToken = nil
+        db.lastKnownPeerGameAccountID = nil
+        db.peerName = nil
+        db.peerBattleTag = nil
+    end
     if db.autoSync == nil then db.autoSync = true end
     db.nextSeq = tonumber(db.nextSeq) or 0
     db.nextDHKSeq = tonumber(db.nextDHKSeq) or 0
@@ -3072,7 +3082,7 @@ function Repo:StartPairing(silent)
     pairNonce = tostring(Now()) .. "-" .. tostring(math.random(10000, 99999))
     pairing = true
     pairingSilent = silent and true or false
-    if not silent then Print("Searching for Aloha's external WoW account.") end
+    if not silent then Print("Searching for a second account. Run PAIR on BOTH clients within 14 seconds.") end
 
     -- Probe any visible Battle.net-friend game accounts first.
     local candidates = DiscoverOnlineWoWGameAccounts(sync and sync.peerBattleTag or nil)
@@ -3153,6 +3163,9 @@ function Repo:Unpair()
     sync.peerName = nil
     sync.peerBattleTag = nil
     sync.peerSessionToken = nil
+    sync.lastKnownPeerGameAccountID = nil
+    sync.autoPair = false
+    pairing = false
     wipe(sendQueue)
     sendHead = 1
     sendTail = 0
@@ -3195,6 +3208,8 @@ end
 local function ReplyPair(senderID, nonce, senderName, senderNode, senderSessionToken, payloadSenderID)
     local sync = EnsureSyncDB()
     if not sync or not nonce or nonce == "" then return end
+    -- Ignore unsolicited probes unless this installation initiated pairing.
+    if not pairing or sync.enabled == false then return end
     if NormalizePlayerName(senderName) == NormalizePlayerName(UnitName("player")) then return end
     if not senderSessionToken or senderSessionToken == "" then return end
     if tostring(senderSessionToken) == tostring(EnsureLocalSessionToken()) then return end
@@ -3224,6 +3239,7 @@ local function ReplyPair(senderID, nonce, senderName, senderNode, senderSessionT
     sync.peerBattleTag = (battleTag and battleTag ~= "") and battleTag or sync.peerBattleTag
     sync.peerSessionToken = tostring(senderSessionToken)
     sync.lastPeerSeen = Now()
+    pairing = false
 
     -- Pair ACK is sent immediately so it cannot sit behind a large history sync queue.
     SendBN(id, table.concat({
