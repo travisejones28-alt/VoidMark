@@ -237,9 +237,9 @@ local function EnsureSyncDB()
     if db.enabled == nil then db.enabled = true end
     -- Migrate older installations away from unsolicited Battle.net friend pairing.
     -- Historical kill sync requires an explicit pairing action on both clients.
-    if db.pairConsentVersion ~= 1 then
+    if db.pairConsentVersion ~= 2 then
         db.autoPair = false
-        db.pairConsentVersion = 1
+        db.pairConsentVersion = 2
         db.peerGameAccountID = nil
         db.peerSessionToken = nil
         db.lastKnownPeerGameAccountID = nil
@@ -3079,6 +3079,8 @@ function Repo:StartPairing(silent)
     end
 
     local sync = EnsureSyncDB()
+    -- Background callers must never initiate broad Battle.net probes.
+    if silent or not sync or sync.enabled == false then return false end
     pairNonce = tostring(Now()) .. "-" .. tostring(math.random(10000, 99999))
     pairing = true
     pairingSilent = silent and true or false
@@ -3209,7 +3211,7 @@ local function ReplyPair(senderID, nonce, senderName, senderNode, senderSessionT
     local sync = EnsureSyncDB()
     if not sync or not nonce or nonce == "" then return end
     -- Ignore unsolicited probes unless this installation initiated pairing.
-    if not pairing or sync.enabled == false then return end
+    if not pairing or pairingSilent or sync.enabled == false then return end
     if NormalizePlayerName(senderName) == NormalizePlayerName(UnitName("player")) then return end
     if not senderSessionToken or senderSessionToken == "" then return end
     if tostring(senderSessionToken) == tostring(EnsureLocalSessionToken()) then return end
@@ -3466,22 +3468,9 @@ local function HandlePayload(payload, senderID)
 end
 
 local function AutoConnectAndSync()
-    -- v9.4: Auto-connect may discover/refresh the peer, but it must NEVER start
-    -- a full repository reconciliation. SYNC NOW is the sole entry point for a
-    -- historical sync transaction. This prevents BN friend-state changes, login
-    -- timers, and simultaneous pair handshakes from spawning overlapping passes.
-    local sync = EnsureSyncDB()
-    if not sync or sync.enabled == false then return end
-
-    if not sync.peerGameAccountID and sync.autoPair ~= false and not pairing then
-        Repo:StartPairing(true)
-        C_Timer.After(AUTO_PAIR_RETRY, function()
-            local s = EnsureSyncDB()
-            if s and not s.peerGameAccountID and s.autoPair ~= false and not pairing then
-                Repo:StartPairing(true)
-            end
-        end)
-    end
+    -- Deliberately disabled. Never discover or pair Battle.net friends
+    -- automatically; repository synchronization requires explicit user action.
+    return
 end
 
 frame:RegisterEvent("PLAYER_LOGIN")
