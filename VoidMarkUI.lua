@@ -272,6 +272,14 @@ local function BuildGearMenu(self, level)
             TaliaaGankTracker:ToggleSapAlertEnabled()
         end
     end)
+    local distractAlertEnabled = TaliaaGankTracker
+        and TaliaaGankTracker.IsDistractAlertEnabled
+        and TaliaaGankTracker:IsDistractAlertEnabled()
+    Add(distractAlertEnabled and "Distract Alert: ON" or "Distract Alert: OFF", function()
+        if TaliaaGankTracker and TaliaaGankTracker.ToggleDistractAlertEnabled then
+            TaliaaGankTracker:ToggleDistractAlertEnabled()
+        end
+    end)
     local kosEnabled = SpyDB and SpyDB.VoidMarkKOSWho
         and SpyDB.VoidMarkKOSWho.enabled ~= false
     Add(kosEnabled and "KOS Alert: ON" or "KOS Alert: OFF", function()
