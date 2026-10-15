@@ -149,6 +149,7 @@ local SAP_SPELL_IDS = {
 }
 local lastSapAlertAt
 local recentRemoteSapAlerts = {}
+do
 local DISTRACT_SPELL_ID = 1725
 local lastDistractAlertAt
 local function IsDistractAlertEnabled()
@@ -157,7 +158,7 @@ local function IsDistractAlertEnabled()
     return SpyDB.VoidMarkDistractAlert == true
 end
 
-local function ShowDistractAlert(sourceName)
+function GT:ShowDistractAlert(sourceName)
     if not IsDistractAlertEnabled() then return end
     local now = GetTime()
     if lastDistractAlertAt and now - lastDistractAlertAt < 3 then return end
@@ -173,6 +174,22 @@ local function ShowDistractAlert(sourceName)
     if PlaySound and SOUNDKIT and SOUNDKIT.RAID_WARNING then
         PlaySound(SOUNDKIT.RAID_WARNING, "Master")
     end
+end
+
+function GT:IsDistractAlertEnabled()
+    return IsDistractAlertEnabled()
+end
+
+function GT:SetDistractAlertEnabled(enabled)
+    SpyDB = SpyDB or {}
+    SpyDB.VoidMarkDistractAlert = enabled and true or false
+end
+
+function GT:ToggleDistractAlertEnabled()
+    self:SetDistractAlertEnabled(not self:IsDistractAlertEnabled())
+    return self:IsDistractAlertEnabled()
+end
+
 end
 
 local function IsSapAlertEnabled()
@@ -240,19 +257,6 @@ function GT:ToggleSapAlertEnabled()
     return self:IsSapAlertEnabled()
 end
 
-function GT:IsDistractAlertEnabled()
-    return IsDistractAlertEnabled()
-end
-
-function GT:SetDistractAlertEnabled(enabled)
-    SpyDB = SpyDB or {}
-    SpyDB.VoidMarkDistractAlert = enabled and true or false
-end
-
-function GT:ToggleDistractAlertEnabled()
-    self:SetDistractAlertEnabled(not self:IsDistractAlertEnabled())
-    return self:IsDistractAlertEnabled()
-end
 
 local sapCommFrame = CreateFrame("Frame")
 if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then
@@ -4677,7 +4681,7 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
             and sourceGUID and sourceGUID:sub(1, 7) == "Player-"
             and sourceFlags and COMBATLOG_OBJECT_REACTION_HOSTILE
             and bit and bit.band(sourceFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) ~= 0 then
-            ShowDistractAlert(sourceName)
+            GT:ShowDistractAlert(sourceName)
         end
 
         -- Personal Rogue safety alert: only fire when Sap actually lands on us.
