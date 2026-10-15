@@ -149,6 +149,31 @@ local SAP_SPELL_IDS = {
 }
 local lastSapAlertAt
 local recentRemoteSapAlerts = {}
+local DISTRACT_SPELL_ID = 1725
+local lastDistractAlertAt
+local function IsDistractAlertEnabled()
+    if not SpyDB then return true end
+    if SpyDB.VoidMarkDistractAlert == nil then SpyDB.VoidMarkDistractAlert = true end
+    return SpyDB.VoidMarkDistractAlert == true
+end
+
+local function ShowDistractAlert(sourceName)
+    if not IsDistractAlertEnabled() then return end
+    local now = GetTime()
+    if lastDistractAlertAt and now - lastDistractAlertAt < 3 then return end
+    lastDistractAlertAt = now
+    local shortName = sourceName and tostring(sourceName):match("^([^%-]+)") or "UNKNOWN ROGUE"
+    local msg = "DISTRACT USED  -  "..shortName
+    -- Distract is ground-targeted. Combat log does not establish who was targeted.
+    if RaidNotice_AddMessage and RaidWarningFrame then
+        RaidNotice_AddMessage(RaidWarningFrame, msg, ChatTypeInfo and ChatTypeInfo["RAID_WARNING"] or {r=1,g=0.2,b=0.2})
+    elseif UIErrorsFrame and UIErrorsFrame.AddMessage then
+        UIErrorsFrame:AddMessage(msg, 1, 0.25, 0.15, 1)
+    end
+    if PlaySound and SOUNDKIT and SOUNDKIT.RAID_WARNING then
+        PlaySound(SOUNDKIT.RAID_WARNING, "Master")
+    end
+end
 
 local function IsSapAlertEnabled()
     if not SpyDB then return true end
@@ -213,6 +238,20 @@ end
 function GT:ToggleSapAlertEnabled()
     self:SetSapAlertEnabled(not self:IsSapAlertEnabled())
     return self:IsSapAlertEnabled()
+end
+
+function GT:IsDistractAlertEnabled()
+    return IsDistractAlertEnabled()
+end
+
+function GT:SetDistractAlertEnabled(enabled)
+    SpyDB = SpyDB or {}
+    SpyDB.VoidMarkDistractAlert = enabled and true or false
+end
+
+function GT:ToggleDistractAlertEnabled()
+    self:SetDistractAlertEnabled(not self:IsDistractAlertEnabled())
+    return self:IsDistractAlertEnabled()
 end
 
 local sapCommFrame = CreateFrame("Frame")
@@ -4631,6 +4670,15 @@ combatMonitor:SetScript("OnEvent", function(_, event, ...)
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
         local _, subEvent, _, sourceGUID, sourceName, sourceFlags, _, destGUID, destName, destFlags, _, payload1, payload2, payload3, payload4, payload5 =
             CombatLogGetCurrentEventInfo()
+
+        -- Distract has no reliable target GUID. Warn only for hostile player casts
+        -- visible in the local combat log, without claiming the player was targeted.
+        if subEvent == "SPELL_CAST_SUCCESS" and tonumber(payload1) == DISTRACT_SPELL_ID
+            and sourceGUID and sourceGUID:sub(1, 7) == "Player-"
+            and sourceFlags and COMBATLOG_OBJECT_REACTION_HOSTILE
+            and bit and bit.band(sourceFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) ~= 0 then
+            ShowDistractAlert(sourceName)
+        end
 
         -- Personal Rogue safety alert: only fire when Sap actually lands on us.
         -- This runs before the normal CLEU fast-return because aura events are
