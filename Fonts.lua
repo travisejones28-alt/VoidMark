@@ -3,9 +3,9 @@ local FontFile
 local SM = LibStub:GetLibrary("LibSharedMedia-3.0")
 local _
 
-SM:Register("font", "Big Noodle Titling", [[Interface\AddOns\TaliaaSpy\Fonts\BigNoodleTitling.ttf]])
-SM:Register("font", "Expressway", [[Interface\AddOns\TaliaaSpy\Fonts\Expressway.ttf]])
-SM:Register("font", "Myriad", [[Interface\AddOns\TaliaaSpy\Fonts\Myriad.ttf]])
+SM:Register("font", "Big Noodle Titling", [[Interface\AddOns\VoidMark\Fonts\BigNoodleTitling.ttf]])
+SM:Register("font", "Expressway", [[Interface\AddOns\VoidMark\Fonts\Expressway.ttf]])
+SM:Register("font", "Myriad", [[Interface\AddOns\VoidMark\Fonts\Myriad.ttf]])
 
 function Spy:AddFontString(string)
 	local Font, Height, Flags
