@@ -14,6 +14,7 @@ SpyDB={};SpyPerCharDB={PlayerData={},KOSData={}}
 Spy={db={profile={}},NearbyList={},ActiveList={},RealmName='Whitemane',FactionName='Horde',CharacterName='Taliaa'}
 loadModule('GankRepository.lua');loadModule('GankTracker.lua')
 local GT=TaliaaGankTracker
+assert(GT.ShowDistractAlert==nil and GT.IsDistractAlertEnabled==nil,"Distract alert was not removed")
 local effects=0
 VoidMarkKillEffects={OnKill=function() effects=effects+1 end,StopActiveSound=function() end}
 M.units.target={name='Hunter',guid='Player-1-HUNTER',class='HUNTER',feign=true}

@@ -1,3 +1,6 @@
+## 1.3.11
+- Removed the nonworking Distract alert and its menu toggle. Sap alerts remain available.
+
 ## 1.3.10 — October 4 lifetime score fix
 - Resolve name-only sightings against the existing GUID-keyed kill ledger, so compact rows, details and lifetime tooltips show the full score before another kill.
 - Use the same fast history calculation for displayed scores and kill recording, including older imported totals and GUID-bound legacy gaps.
