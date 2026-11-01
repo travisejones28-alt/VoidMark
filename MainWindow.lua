@@ -1208,104 +1208,94 @@ function Spy:ClearCombatSightings()
     end
 end
 
+-- Independent, NONSECURE combat list. No protected targeting attributes are changed.
+-- This lets players see and drag combat sightings without combat lockdown errors.
 function Spy:EnsureCombatQueueBar()
     if not Spy.MainWindow then return nil end
-    local f = Spy.MainWindow.CombatQueueBar
-    if not f then
-        f = CreateFrame("Frame", nil, Spy.MainWindow, "BackdropTemplate")
-        Spy.MainWindow.CombatQueueBar = f
-        f:SetPoint("TOPLEFT", Spy.MainWindow, "TOPLEFT", 2, -54)
-        f:SetPoint("TOPRIGHT", Spy.MainWindow, "TOPRIGHT", -2, -54)
-        f:SetHeight(math.max(18, Spy.db.profile.MainWindow.RowHeight or 18))
-        f:SetFrameLevel(Spy.MainWindow:GetFrameLevel() + 70)
-        f:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background" })
-        f:SetBackdropColor(0.10, 0.02, 0.16, 0.94)
-        f.Icon = f:CreateTexture(nil, "ARTWORK")
-        f.Icon:SetSize(14, 14)
-        f.Icon:SetPoint("LEFT", f, "LEFT", 4, 0)
-        f.Icon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
-        f.Text = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        f.Text:SetPoint("LEFT", f.Icon, "RIGHT", 4, 0)
-        f.Text:SetPoint("RIGHT", f, "RIGHT", -4, 0)
-        f.Text:SetJustifyH("LEFT")
-        f.Text:SetTextColor(0.86, 0.66, 1.0, 1)
-        f:EnableMouse(false)
-        f:Hide()
+    if self.CombatNearbyFrame then return self.CombatNearbyFrame end
+    local f = CreateFrame("Frame", "VoidMarkCombatNearby", UIParent, "BackdropTemplate")
+    self.CombatNearbyFrame = f
+    f:SetSize(math.max(180, Spy.MainWindow:GetWidth()), 34)
+    f:SetPoint("TOPLEFT", Spy.MainWindow, "BOTTOMLEFT", 0, -4)
+    f:SetFrameStrata("DIALOG")
+    f:SetClampedToScreen(true)
+    f:SetMovable(true)
+    f:SetResizable(true)
+    if f.SetResizeBounds then f:SetResizeBounds(180, 34, 450, 500) end
+    f:EnableMouse(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", function(self)
+        if not self.isLocked then self:StartMoving() end
+    end)
+    f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+    f:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8", edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=8,
+        insets={left=2,right=2,top=2,bottom=2}})
+    f:SetBackdropColor(0.06,0.02,0.10,0.94)
+    f:SetBackdropBorderColor(0.55,0.22,0.8,1)
+    local title = f:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+    title:SetPoint("TOPLEFT",8,-8)
+    title:SetText("VOIDMARK  •  COMBAT NEARBY (drag to move)")
+    f.Title = title
+    f.Rows = {}
+    for i=1,12 do
+        local row = f:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+        row:SetPoint("TOPLEFT",f,"TOPLEFT",8,-19-(i-1)*18)
+        row:SetPoint("RIGHT",f,"RIGHT",-8,0)
+        row:SetJustifyH("LEFT")
+        row:Hide()
+        f.Rows[i]=row
     end
+    local grip=CreateFrame("Button",nil,f)
+    grip:SetSize(15,15)
+    grip:SetPoint("BOTTOMRIGHT",-1,1)
+    grip:EnableMouse(true)
+    grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    grip:SetScript("OnMouseDown",function(self,button)
+        if button=="LeftButton" then f:StartSizing("BOTTOMRIGHT") end
+    end)
+    grip:SetScript("OnMouseUp",function() f:StopMovingOrSizing() end)
+    f:Hide()
     return f
 end
 
 function Spy:UpdateCombatQueueBar()
-    local f = Spy:EnsureCombatQueueBar()
+    local f = self:EnsureCombatQueueBar()
     if not f then return end
-
-    local sightings = Spy.CombatSightings or {}
-    local newest = nil
-    local count = 0
-    for _, data in pairs(sightings) do
-        count = count + 1
-        if not newest or (data.seenAt or 0) > (newest.seenAt or 0) then
-            newest = data
+    local now = time()
+    local entries = {}
+    for player,data in pairs(self.CombatSightings or {}) do
+        if now-(data.seenAt or now)<=30 then
+            entries[#entries+1]=data
+        else
+            self.CombatSightings[player]=nil
         end
     end
-
-    if not newest then
-        f:Hide()
-        return
+    table.sort(entries,function(a,b) return (a.seenAt or 0)>(b.seenAt or 0) end)
+    for i,row in ipairs(f.Rows) do
+        local data=entries[i]
+        if data then
+            local bare=tostring(data.player):match("^([^%-]+)") or tostring(data.player)
+            local stealth=self.StealthDetectedUntil and (self.StealthDetectedUntil[data.player] or 0)>now
+            local prefix=stealth and "STEALTH  " or (data.kos and "KOS  " or "NEARBY  ")
+            local detail=(data.level and ("  L"..tostring(data.level)) or "")..(data.class and ("  "..tostring(data.class)) or "")
+            row:SetText(prefix..bare..detail.."  (visual only)")
+            if data.kos then row:SetTextColor(1,0.30,0.36,1)
+            elseif stealth then row:SetTextColor(0.83,0.48,1,1)
+            else row:SetTextColor(0.94,0.89,1,1) end
+            row:Show()
+        else
+            row:Hide()
+        end
     end
-
-    local player = tostring(newest.player or "")
-    local bare = player:match("^([^%-]+)") or player
-    local detail = ""
-    if newest.level then detail = detail .. " L" .. tostring(newest.level) end
-    if newest.class then detail = detail .. " " .. tostring(newest.class) end
-    local more = ""
-    if count > 1 then more = "  +" .. tostring(count - 1) end
-
-    if newest.kos then
-        f:SetBackdropColor(0.23, 0.02, 0.05, 0.95)
-        f.Text:SetTextColor(1.0, 0.36, 0.40, 1)
-        f.Text:SetText("KOS QUEUED • " .. bare .. detail .. more)
-    else
-        f:SetBackdropColor(0.10, 0.02, 0.16, 0.94)
-        f.Text:SetTextColor(0.86, 0.66, 1.0, 1)
-        f.Text:SetText("QUEUED • " .. bare .. detail .. more)
-    end
+    if #entries==0 then f:Hide() return end
+    f:SetHeight(29+math.min(#entries,#f.Rows)*18)
     f:Show()
 end
 
-function Spy:ShowCombatStealthNotice(player, kind)
-    if not Spy.MainWindow then return end
-    local f = Spy.MainWindow.CombatStealthNotice
-    if not f then
-        f = CreateFrame("Frame", nil, Spy.MainWindow, "BackdropTemplate")
-        Spy.MainWindow.CombatStealthNotice = f
-        f:SetPoint("TOPLEFT", Spy.MainWindow, "TOPLEFT", 2, -34)
-        f:SetPoint("TOPRIGHT", Spy.MainWindow, "TOPRIGHT", -2, -34)
-        f:SetHeight(math.max(18, Spy.db.profile.MainWindow.RowHeight or 18))
-        f:SetFrameLevel(Spy.MainWindow:GetFrameLevel() + 80)
-        f:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background" })
-        f:SetBackdropColor(0.18, 0.03, 0.28, 0.96)
-        f.Icon = f:CreateTexture(nil, "ARTWORK")
-        f.Icon:SetSize(16, 16)
-        f.Icon:SetPoint("LEFT", f, "LEFT", 3, 0)
-        f.Icon:SetTexture("Interface\\Icons\\Ability_Stealth")
-        f.Text = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        f.Text:SetPoint("LEFT", f.Icon, "RIGHT", 4, 0)
-        f.Text:SetPoint("RIGHT", f, "RIGHT", -4, 0)
-        f.Text:SetJustifyH("LEFT")
-        f.Text:SetTextColor(0.78, 0.42, 1.0, 1)
-        f:EnableMouse(false)
-        f:Hide()
-    end
-
-    Spy._combatStealthNoticeToken = (Spy._combatStealthNoticeToken or 0) + 1
-    local token = Spy._combatStealthNoticeToken
-    f.Text:SetText(string.format("%s DETECTED: %s", string.upper(kind or "STEALTH"), tostring(player)))
-    f:Show()
-    C_Timer.After(8, function()
-        if Spy._combatStealthNoticeToken == token and f then f:Hide() end
-    end)
+function Spy:ShowCombatStealthNotice(player,kind)
+    -- The combat Nearby panel renders an identified stealth sighting as its own
+    -- distinct row. It is deliberately not a misleading clickable target.
+    self:UpdateCombatQueueBar()
 end
 
 function Spy:SaveAlertWindowPosition()
