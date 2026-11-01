@@ -1218,16 +1218,16 @@ function Spy:EnsureCombatQueueBar()
     -- visual-only rows; secure target bindings never change during combat.
     local overlay = CreateFrame("Frame", nil, UIParent)
     self.CombatNearbyRows = overlay
-    overlay:SetPoint("BOTTOMLEFT", Spy.MainWindow, "BOTTOMLEFT", 3, 2)
-    overlay:SetPoint("BOTTOMRIGHT", Spy.MainWindow, "BOTTOMRIGHT", -3, 2)
+    overlay:SetPoint("TOPLEFT", Spy.MainWindow, "TOPLEFT", 2, -90)
+    overlay:SetPoint("TOPRIGHT", Spy.MainWindow, "TOPRIGHT", -2, -90)
     overlay:SetHeight(1)
     overlay:SetFrameStrata("TOOLTIP")
     overlay:EnableMouse(false)
     overlay.Rows = {}
     for i = 1, 12 do
         local bar = CreateFrame("Frame", nil, overlay, "BackdropTemplate")
-        bar:SetPoint("BOTTOMLEFT", overlay, "BOTTOMLEFT", 0, (i - 1) * 18)
-        bar:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", 0, (i - 1) * 18)
+        bar:SetPoint("TOPLEFT", overlay, "TOPLEFT", 0, -(i - 1) * 18)
+        bar:SetPoint("TOPRIGHT", overlay, "TOPRIGHT", 0, -(i - 1) * 18)
         bar:SetHeight(18)
         bar:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8"})
         bar:SetBackdropColor(0.20, 0.045, 0.31, 0.98)
@@ -1253,6 +1253,7 @@ function Spy:EnsureCombatQueueBar()
         bar:Hide()
         overlay.Rows[i] = bar
     end
+    -- Match the existing Nearby font rather than using the smaller default font.
     overlay:Hide()
     return overlay
 end
@@ -1281,6 +1282,35 @@ function Spy:UpdateCombatQueueBar()
         end
     end
     table.sort(entries, function(a, b) return (a.seenAt or 0) > (b.seenAt or 0) end)
+    -- Place combat sightings immediately AFTER the visible secure rows, not
+    -- over their lower edge. The main protected frame is never resized here.
+    local main = Spy.MainWindow
+    local step = (Spy.db.profile.MainWindow.RowHeight or 18) + (Spy.db.profile.MainWindow.RowSpacing or 0)
+    local top = (Spy.VoidMark and Spy.VoidMark.ROW_TOP_OFFSET) or 90
+    local secureCount = 0
+    for i, row in ipairs(main.Rows or {}) do
+        if row:IsShown() then secureCount = math.max(secureCount, i) end
+    end
+    overlay:ClearAllPoints()
+    overlay:SetPoint("TOPLEFT", main, "TOPLEFT", 2, -top - secureCount * step)
+    overlay:SetPoint("TOPRIGHT", main, "TOPRIGHT", -2, -top - secureCount * step)
+    for i, bar in ipairs(overlay.Rows) do
+        bar:ClearAllPoints()
+        bar:SetPoint("TOPLEFT", overlay, "TOPLEFT", 0, -(i - 1) * step)
+        bar:SetPoint("TOPRIGHT", overlay, "TOPRIGHT", 0, -(i - 1) * step)
+        bar:SetHeight(Spy.db.profile.MainWindow.RowHeight or 18)
+        local standard = main.Rows and main.Rows[1]
+        if standard and standard.LeftText and standard.RightText then
+            local font, size, flags = standard.LeftText:GetFont()
+            if font and size then bar.Name:SetFont(font, size, flags or "") end
+            font, size, flags = standard.RightText:GetFont()
+            if font and size then
+                bar.Level:SetFont(font, size, flags or "")
+                bar.Class:SetFont(font, size, flags or "")
+                bar.Record:SetFont(font, size, flags or "")
+            end
+        end
+    end
     for i, bar in ipairs(overlay.Rows) do
         local data = entries[i]
         if data then
