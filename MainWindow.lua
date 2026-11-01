@@ -1179,7 +1179,6 @@ function Spy:QueueCombatSighting(player, source)
     -- to VoidMark so it "hits the bar" immediately and then promotes to a normal
     -- clickable row after combat ends.
     Spy:UpdateCombatQueueBar()
-    VoidMarkCombatNotice(player, playerData, isKOS)
 end
 
 function Spy:ClearCombatSightings()
@@ -1290,6 +1289,13 @@ function Spy:UpdateCombatQueueBar()
     if #entries==0 then f:Hide() return end
     f:SetHeight(29+math.min(#entries,#f.Rows)*18)
     f:Show()
+    if not f.expiryTickerActive then
+        f.expiryTickerActive=true
+        C_Timer.After(1,function()
+            f.expiryTickerActive=false
+            if Spy.CombatSightings and next(Spy.CombatSightings) then Spy:UpdateCombatQueueBar() end
+        end)
+    end
 end
 
 function Spy:ShowCombatStealthNotice(player,kind)
