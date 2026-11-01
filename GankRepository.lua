@@ -29,7 +29,7 @@ local syncSendNotBefore = 0
 -- Fast differential sync state. Manual sync exchanges compact inventories of
 -- known event IDs first, then sends only rows the other account is missing.
 local ID_LIST_SEP = "\030"
-local INVENTORY_CHUNK_BYTES = 150
+local INVENTORY_PACKET_MAX_BYTES = 240 -- leave headroom below the Battle.net 255-byte payload ceiling
 local SYNC_BUILD_BATCH = 120
 local incomingInventories = {}
 
@@ -1981,19 +1981,29 @@ local function QueueInventoryAsync(gameAccountID, tx, requestReply, onComplete)
 
         local seen = (kind == "K") and job.seenKills or job.seenDHKs
         if seen[id] then return end
-        seen[id] = true
 
+        -- Count the actual packet envelope (including the session token and
+        -- transaction ID). This safely packs more IDs without risking a
+        -- Battle.net packet that exceeds the maximum payload length.
+        local envelopeBytes = #table.concat({
+            "I", CleanField(EnsureLocalSessionToken()),
+            CleanField(job.tx), kind, "",
+        }, SEP)
+        local addBytes = #id + (#job.chunk > 0 and 1 or 0)
+        if #job.chunk > 0 and
+            (envelopeBytes + job.chunkBytes + addBytes) > INVENTORY_PACKET_MAX_BYTES then
+            Flush(kind)
+            addBytes = #id
+        end
+        -- If an unusually long ID cannot fit, do not silently omit it.
+        -- The previous sync format will also be unable to transport that ID.
+        -- Queue it on its own so the ordinary transport retry path handles it.
+        seen[id] = true
         if kind == "K" then
             job.killCount = job.killCount + 1
         else
             job.dhkCount = job.dhkCount + 1
         end
-
-        local addBytes = #id + (#job.chunk > 0 and 1 or 0)
-        if #job.chunk > 0 and (job.chunkBytes + addBytes) > INVENTORY_CHUNK_BYTES then
-            Flush(kind)
-        end
-
         job.chunk[#job.chunk + 1] = id
         job.chunkBytes = job.chunkBytes + addBytes
     end
