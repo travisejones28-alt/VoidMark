@@ -2042,7 +2042,10 @@ UpdateDisplay = function()
     if GT.Frame.RevengeText then
         local revengeCount, newest = RevengeCountAndNewest()
         if revengeCount > 0 and newest then
-            GT.Frame.RevengeText:SetText("REVENGE " .. tostring(revengeCount) .. "  •  " .. tostring(newest.name or "?"))
+            local revengeName = tostring(newest.name or "?")
+            -- Keep this bottom status row single-line even with realm-qualified names.
+            if #revengeName > 18 then revengeName = revengeName:sub(1, 15) .. "..." end
+            GT.Frame.RevengeText:SetText("REVENGE " .. tostring(revengeCount) .. "  •  " .. revengeName)
             GT.Frame.RevengeText:SetTextColor(1.00, 0.32, 0.45, 1)
         else
             GT.Frame.RevengeText:SetText("REVENGE none")
@@ -3514,18 +3517,30 @@ frame.RevengeText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall
 frame.RevengeText:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 73)
 frame.RevengeText:SetPoint("RIGHT", frame, "RIGHT", -10, 0)
 frame.RevengeText:SetJustifyH("LEFT")
+-- Status rows must not wrap into their neighbors at different UI scales.
+frame.RevengeText:SetHeight(12)
+if frame.RevengeText.SetWordWrap then frame.RevengeText:SetWordWrap(false) end
+if frame.RevengeText.SetMaxLines then frame.RevengeText:SetMaxLines(1) end
 frame.RevengeText:SetTextColor(0.50, 0.44, 0.56, 1)
 
 frame.RepoText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 frame.RepoText:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 59)
 frame.RepoText:SetPoint("RIGHT", frame, "RIGHT", -10, 0)
 frame.RepoText:SetJustifyH("LEFT")
+-- Status rows must not wrap into their neighbors at different UI scales.
+frame.RepoText:SetHeight(12)
+if frame.RepoText.SetWordWrap then frame.RepoText:SetWordWrap(false) end
+if frame.RepoText.SetMaxLines then frame.RepoText:SetMaxLines(1) end
 frame.RepoText:SetTextColor(0.54, 0.45, 0.62, 1)
 
 frame.CombatText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 frame.CombatText:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 45)
 frame.CombatText:SetPoint("RIGHT", frame, "RIGHT", -10, 0)
 frame.CombatText:SetJustifyH("LEFT")
+-- Status rows must not wrap into their neighbors at different UI scales.
+frame.CombatText:SetHeight(12)
+if frame.CombatText.SetWordWrap then frame.CombatText:SetWordWrap(false) end
+if frame.CombatText.SetMaxLines then frame.CombatText:SetMaxLines(1) end
 frame.CombatText:SetTextColor(0.54, 0.45, 0.62, 1)
 
 frame.SyncText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
