@@ -51,7 +51,6 @@ Modules\TaliaaBoats.lua
 Modules\RideOrDie.lua
 Modules\DamageRecords.lua
 Modules\EnemyMoves.lua
-Modules\TargetRange.lua
 Modules\KOSZoneAlerts.lua
 VoidMarkUI.lua
 Modules\MinimapButton.lua
