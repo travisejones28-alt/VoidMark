@@ -1214,74 +1214,107 @@ end
 function Spy:EnsureCombatQueueBar()
     if not Spy.MainWindow then return nil end
     if self.CombatNearbyRows then return self.CombatNearbyRows end
+    -- The overlay is deliberately nonsecure and blocks mouse clicks on its
+    -- visual-only rows; secure target bindings never change during combat.
     local overlay = CreateFrame("Frame", nil, UIParent)
     self.CombatNearbyRows = overlay
-    overlay:SetPoint("BOTTOMLEFT", Spy.MainWindow, "BOTTOMLEFT", 3, 3)
-    overlay:SetPoint("BOTTOMRIGHT", Spy.MainWindow, "BOTTOMRIGHT", -3, 3)
+    overlay:SetPoint("BOTTOMLEFT", Spy.MainWindow, "BOTTOMLEFT", 3, 2)
+    overlay:SetPoint("BOTTOMRIGHT", Spy.MainWindow, "BOTTOMRIGHT", -3, 2)
     overlay:SetHeight(1)
     overlay:SetFrameStrata("TOOLTIP")
     overlay:EnableMouse(false)
     overlay.Rows = {}
-    for i=1,12 do
-        local bar=CreateFrame("Frame",nil,overlay,"BackdropTemplate")
-        bar:SetPoint("BOTTOMLEFT",overlay,"BOTTOMLEFT",0,(i-1)*18)
-        bar:SetPoint("BOTTOMRIGHT",overlay,"BOTTOMRIGHT",0,(i-1)*18)
+    for i = 1, 12 do
+        local bar = CreateFrame("Frame", nil, overlay, "BackdropTemplate")
+        bar:SetPoint("BOTTOMLEFT", overlay, "BOTTOMLEFT", 0, (i - 1) * 18)
+        bar:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", 0, (i - 1) * 18)
         bar:SetHeight(18)
-        bar:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8"})
-        bar:SetBackdropColor(0.16,0.035,0.24,0.98)
-        bar:EnableMouse(false)
-        local label=bar:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
-        label:SetPoint("LEFT",bar,"LEFT",5,0)
-        label:SetPoint("RIGHT",bar,"RIGHT",-5,0)
-        label:SetJustifyH("LEFT")
-        label:SetTextColor(0.88,0.59,1,1)
-        bar.Label=label
+        bar:SetBackdrop({bgFile = "Interface\Buttons\WHITE8X8"})
+        bar:SetBackdropColor(0.20, 0.045, 0.31, 0.98)
+        bar:EnableMouse(true) -- do not let click-through target a different enemy
+        bar.Name = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        bar.Name:SetPoint("LEFT", bar, "LEFT", 4, 0)
+        bar.Name:SetPoint("RIGHT", bar, "RIGHT", -115, 0)
+        bar.Name:SetJustifyH("LEFT")
+        bar.Name:SetWordWrap(false)
+        bar.Level = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        bar.Level:SetPoint("RIGHT", bar, "RIGHT", -78, 0)
+        bar.Level:SetWidth(25)
+        bar.Level:SetJustifyH("RIGHT")
+        bar.Class = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        bar.Class:SetPoint("RIGHT", bar, "RIGHT", -55, 0)
+        bar.Class:SetWidth(20)
+        bar.Class:SetJustifyH("CENTER")
+        bar.Record = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        bar.Record:SetPoint("RIGHT", bar, "RIGHT", -3, 0)
+        bar.Record:SetWidth(48)
+        bar.Record:SetJustifyH("RIGHT")
+        bar.Record:SetTextColor(0.73, 0.64, 0.79, 1)
         bar:Hide()
-        overlay.Rows[i]=bar
+        overlay.Rows[i] = bar
     end
     overlay:Hide()
     return overlay
 end
 
+local function CombatClassIcon(class)
+    local coords = class and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[class]
+    if not coords then return "" end
+    local a = {}
+    for i = 1, 4 do a[i] = math.floor((coords[i] or 0) * 256 + 0.5) end
+    return string.format("|TInterface\GLUES\CHARACTERCREATE\UI-CHARACTERCREATE-CLASSES:16:16:0:0:256:256:%d:%d:%d:%d|t", a[1], a[2], a[3], a[4])
+end
+
 function Spy:UpdateCombatQueueBar()
-    local overlay=self:EnsureCombatQueueBar()
+    local overlay = self:EnsureCombatQueueBar()
     if not overlay then return end
-    local now=time()
-    local entries={}
-    for player,data in pairs(self.CombatSightings or {}) do
-        if now-(data.seenAt or now)<=30 then
-            entries[#entries+1]=data
+    local now = time()
+    local entries = {}
+    for player, data in pairs(self.CombatSightings or {}) do
+        if now - (data.seenAt or now) <= 30 then
+            local frozen = VoidMarkFindFrozenRow(player)
+            if not (frozen and frozen:IsShown()) then
+                entries[#entries + 1] = data
+            end
         else
-            self.CombatSightings[player]=nil
+            self.CombatSightings[player] = nil
         end
     end
-    table.sort(entries,function(a,b) return (a.seenAt or 0)>(b.seenAt or 0) end)
-    -- Only render fresh sightings without already-visible secure target rows.
-    local visible={}
-    for _,data in ipairs(entries) do
-        local frozen=VoidMarkFindFrozenRow(data.player)
-        if not (frozen and frozen:IsShown()) then visible[#visible+1]=data end
-    end
-    for i,bar in ipairs(overlay.Rows) do
-        local data=visible[i]
+    table.sort(entries, function(a, b) return (a.seenAt or 0) > (b.seenAt or 0) end)
+    for i, bar in ipairs(overlay.Rows) do
+        local data = entries[i]
         if data then
-            local name=tostring(data.player):match("^([^%-]+)") or tostring(data.player)
-            local stealth=self.StealthDetectedUntil and (self.StealthDetectedUntil[data.player] or 0)>now
-            local text=(stealth and "STEALTH  " or (data.kos and "KOS  " or ""))..name
-            if data.level then text=text.."  "..tostring(data.level) end
-            if data.class then text=text.."  "..tostring(data.class) end
-            bar.Label:SetText(text.."  [visual]")
-            if data.kos then bar:SetBackdropColor(0.30,0.03,0.07,0.98)
-            else bar:SetBackdropColor(0.16,0.035,0.24,0.98) end
+            local player = data.player
+            local pd = SpyPerCharDB and SpyPerCharDB.PlayerData and SpyPerCharDB.PlayerData[player]
+            local class = (pd and pd.class) or data.class
+            local level = (pd and pd.level) or data.level
+            local stealth = self.StealthDetectedUntil and (self.StealthDetectedUntil[player] or 0) > now
+            local name = tostring(player):match("^([^%-]+)") or tostring(player)
+            local marker = stealth and "|TInterface\Icons\Ability_Stealth:13:13:0:0|t " or ""
+            if data.kos then marker = "|TInterface\TargetingFrame\UI-RaidTargetingIcon_8:13:13:0:0|t " end
+            bar.Name:SetText(marker .. name)
+            local cc = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+            bar.Name:SetTextColor(cc and cc.r or 0.92, cc and cc.g or 0.75, cc and cc.b or 1, 1)
+            bar.Level:SetText(level and tostring(level) or "??")
+            bar.Class:SetText(CombatClassIcon(class))
+            local kills, deaths = tonumber(pd and pd.wins) or 0, tonumber(pd and pd.loses) or 0
+            if TaliaaGankRepository and TaliaaGankRepository.GetHistoricalStats then
+                local k, d = TaliaaGankRepository:GetHistoricalStats(player, pd and pd.guid)
+                kills, deaths = math.max(kills, tonumber(k) or 0), math.max(deaths, tonumber(d) or 0)
+            end
+            bar.Record:SetText(string.format("%d-%d", kills, deaths))
+            bar:SetBackdropColor(data.kos and 0.32 or 0.20, 0.035, data.kos and 0.07 or 0.31, 0.98)
             bar:Show()
-        else bar:Hide() end
+        else
+            bar:Hide()
+        end
     end
-    if #visible==0 then overlay:Hide() return end
+    if #entries == 0 then overlay:Hide() return end
     overlay:Show()
     if not self._CombatNearbyExpiryPending then
-        self._CombatNearbyExpiryPending=true
-        C_Timer.After(1,function()
-            Spy._CombatNearbyExpiryPending=false
+        self._CombatNearbyExpiryPending = true
+        C_Timer.After(1, function()
+            Spy._CombatNearbyExpiryPending = false
             if Spy.CombatSightings and next(Spy.CombatSightings) then Spy:UpdateCombatQueueBar() end
         end)
     end
