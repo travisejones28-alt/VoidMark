@@ -1185,8 +1185,8 @@ function Spy:ClearCombatSightings()
     Spy.CombatSightings = {}
     Spy._VoidMarkCombatNoticeAt = {}
 
-    if Spy.MainWindow and Spy.MainWindow.CombatQueueBar then
-        Spy.MainWindow.CombatQueueBar:Hide()
+    if Spy.CombatNearbyFrame then
+        Spy.CombatNearbyFrame:Hide()
     end
 
     -- Compatibility cleanup if a frame from an older build happened to exist.
