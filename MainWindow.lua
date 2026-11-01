@@ -1229,7 +1229,7 @@ function Spy:EnsureCombatQueueBar()
         bar:SetPoint("BOTTOMLEFT", overlay, "BOTTOMLEFT", 0, (i - 1) * 18)
         bar:SetPoint("BOTTOMRIGHT", overlay, "BOTTOMRIGHT", 0, (i - 1) * 18)
         bar:SetHeight(18)
-        bar:SetBackdrop({bgFile = "Interface\Buttons\WHITE8X8"})
+        bar:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8"})
         bar:SetBackdropColor(0.20, 0.045, 0.31, 0.98)
         bar:EnableMouse(true) -- do not let click-through target a different enemy
         bar.Name = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -1262,7 +1262,7 @@ local function CombatClassIcon(class)
     if not coords then return "" end
     local a = {}
     for i = 1, 4 do a[i] = math.floor((coords[i] or 0) * 256 + 0.5) end
-    return string.format("|TInterface\GLUES\CHARACTERCREATE\UI-CHARACTERCREATE-CLASSES:16:16:0:0:256:256:%d:%d:%d:%d|t", a[1], a[2], a[3], a[4])
+    return string.format("|TInterface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES:16:16:0:0:256:256:%d:%d:%d:%d|t", a[1], a[2], a[3], a[4])
 end
 
 function Spy:UpdateCombatQueueBar()
@@ -1290,8 +1290,8 @@ function Spy:UpdateCombatQueueBar()
             local level = (pd and pd.level) or data.level
             local stealth = self.StealthDetectedUntil and (self.StealthDetectedUntil[player] or 0) > now
             local name = tostring(player):match("^([^%-]+)") or tostring(player)
-            local marker = stealth and "|TInterface\Icons\Ability_Stealth:13:13:0:0|t " or ""
-            if data.kos then marker = "|TInterface\TargetingFrame\UI-RaidTargetingIcon_8:13:13:0:0|t " end
+            local marker = stealth and "|TInterface\\Icons\\Ability_Stealth:13:13:0:0|t " or ""
+            if data.kos then marker = "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_8:13:13:0:0|t " end
             bar.Name:SetText(marker .. name)
             local cc = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
             bar.Name:SetTextColor(cc and cc.r or 0.92, cc and cc.g or 0.75, cc and cc.b or 1, 1)
