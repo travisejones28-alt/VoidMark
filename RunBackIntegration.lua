@@ -84,6 +84,12 @@ end
 function Spy:GetRunBackDisplay(name)
     local r=self:GetRunBackRecord(name)
     if not r or not RB:Finite(r.readyAt) then return nil end
+    -- An unbounded corpse position yields a zero-second geometric floor.
+    -- That means "we cannot estimate", NOT that the enemy can return now.
+    -- Never show a misleading +0:20 runback for a distant unknown graveyard.
+    if not r.calc or not RB:Finite(r.calc.distance) then
+        return {time="GY ?", ready=false, unknown=true, record=r}
+    end
     local now=RB:Now()
     local delta=r.readyAt-now
     if delta>0 then
