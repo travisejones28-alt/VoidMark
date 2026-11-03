@@ -3427,13 +3427,20 @@ local function HandlePayload(payload, senderID)
     if kind == "D" then
         sync.lastSyncComplete = Now()
         local wasBulk = sync.bulkReceivePending
-        sync.bulkReceivePending = nil
 
         local tx = tostring(parts[3] or "")
         local finalLeg = tostring(parts[4] or "0") == "1"
         local recentCutoff = tonumber(parts[8])
+        local isRecent = recentCutoff and recentCutoff > 0
 
-        if wasBulk and TaliaaGankTracker then
+        -- First D finishes only the outbound leg, NOT the entire recent sync.
+        -- Keep bulk mode active while receiving the return leg: otherwise each
+        -- received kill invokes OnHistoryUpdated and can rebuild 14k records.
+        if not isRecent or finalLeg then
+            sync.bulkReceivePending = nil
+        end
+
+        if wasBulk and (not isRecent or finalLeg) and TaliaaGankTracker then
             if TaliaaGankTracker.OnHistoryUpdated then
                 TaliaaGankTracker:OnHistoryUpdated(nil, nil, 0)
             end
@@ -3493,6 +3500,15 @@ local function HandlePayload(payload, senderID)
             sync.activeSyncTx = nil
             sync.lastSyncComplete = Now()
             sync.lastSyncVerified = Now()
+            -- One consolidated UI/stat refresh after all return-leg records land.
+            if TaliaaGankTracker then
+                if TaliaaGankTracker.OnHistoryUpdated then
+                    TaliaaGankTracker:OnHistoryUpdated(nil, nil, 0)
+                end
+                if TaliaaGankTracker.OnDHKHistoryUpdated then
+                    TaliaaGankTracker:OnDHKHistoryUpdated()
+                end
+            end
             Print("RECENT SYNC COMPLETE: last 72 hours exchanged. Offline sync keeps full history.")
         end
         return
