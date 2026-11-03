@@ -3105,6 +3105,20 @@ function GT:RecordKill(playerName, playerGUID, shouldAnnounce)
     end
     perfLastMS = PerfMark(perf, "repository write", perfLastMS)
 
+    -- RunBack's separate death listener can miss a kill that GankTracker
+    -- confirmed through an alternate credit path. Defer the backup so the
+    -- regular death listener gets first chance to create its timer. This does
+    -- not modify the kill ledger or interfere with successful timers.
+    if IsPlayerGUID(playerGUID) and C_Timer and C_Timer.After then
+        local runbackName, runbackGUID = playerName, playerGUID
+        C_Timer.After(0.20, function()
+            if Spy and Spy.EnsureRunBackForConfirmedKill
+                and not GT:IsRecentFeign(runbackName, runbackGUID) then
+                Spy:EnsureRunBackForConfirmedKill(runbackName, runbackGUID)
+            end
+        end)
+    end
+
     -- Keep VoidMark's visible W/L cache in lockstep with the canonical lifetime
     -- repository value returned for this kill. This fixes rows that could remain
     -- at 0-0 while the kill announcement correctly reported Historical 2x, etc.
