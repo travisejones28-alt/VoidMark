@@ -36,6 +36,18 @@ local function record(A,guid,name,seconds)
 end
 
 do
+    local A=engine()
+    local guid='Player-1-MISSED'
+    Spy:EnsureRunBackForConfirmedKill('Missed',guid)
+    local timer=assert(A.active[guid],'confirmed local kill should recover missing timer')
+    local display=assert(Spy:GetRunBackDisplay('Missed'))
+    eq(display.time,'GY ?','unknown location must not show fabricated return time')
+    Spy:EnsureRunBackForConfirmedKill('Missed',guid)
+    eq(A.active[guid],timer,'fallback must not replace existing timer')
+    print('PASS: confirmed-kill RunBack fallback and unknown-position display')
+end
+
+do
     local A=engine(); math.randomseed(20261004)
     for _=1,2000 do
         local p={x=math.random(-3000,3000),y=math.random(-3000,3000),map=0,uncertainty=math.random(0,400)}
