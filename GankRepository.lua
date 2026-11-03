@@ -31,7 +31,8 @@ local syncSendNotBefore = 0
 local ID_LIST_SEP = "\030"
 local INVENTORY_CHUNK_BYTES = 150
 local SYNC_BUILD_BATCH = 120
-local RECENT_SYNC_SECONDS = 72 * 3600
+-- 24-hour activity window plus a 2-hour overlap for delayed client sessions.
+local RECENT_SYNC_SECONDS = (24 + 2) * 3600
 local recentSyncHandshake = nil
 local activeRecentCutoffs = {}
 local incomingInventories = {}
@@ -2866,9 +2867,9 @@ function Repo:SyncNow(silent, force)
     local cutoff = now - RECENT_SYNC_SECONDS
     recentSyncHandshake = { tx = tx, cutoff = cutoff, peerID = peerID, silent = silent }
     QueuePayload(peerID, table.concat({
-        "V", CleanField(EnsureLocalSessionToken()), tx, "R72", "REQ", tostring(cutoff)
+        "V", CleanField(EnsureLocalSessionToken()), tx, "R26", "REQ", tostring(cutoff)
     }, SEP))
-    if not silent then Print("Recent sync requested: last 72 hours. Checking peer version.") end
+    if not silent then Print("Recent sync requested: last 26 hours. Checking peer version.") end
 
     local function CheckHandshake()
         local pending = recentSyncHandshake
@@ -2881,7 +2882,7 @@ function Repo:SyncNow(silent, force)
             current.bulkReceivePending = nil
             current.activeSyncTx = nil
         end
-        Print("Recent sync cancelled: peer lacks 72-hour protocol. Update VoidMark on BOTH accounts.")
+        Print("Recent sync cancelled: peer lacks 26-hour protocol. Update VoidMark on BOTH accounts.")
     end
     C_Timer.After(12, CheckHandshake)
     return true
@@ -3307,11 +3308,11 @@ local function HandlePayload(payload, senderID)
         local mode = tostring(parts[4] or "")
         local action = tostring(parts[5] or "")
         local cutoff = tonumber(parts[6])
-        if mode ~= "R72" or not cutoff or cutoff > Now()
+        if mode ~= "R26" or not cutoff or cutoff > Now()
             or cutoff < (Now() - RECENT_SYNC_SECONDS - 600) then return end
         if action == "REQ" then
             QueuePayload(sync.peerGameAccountID, table.concat({
-                "V", CleanField(EnsureLocalSessionToken()), tx, "R72", "ACK", tostring(cutoff)
+                "V", CleanField(EnsureLocalSessionToken()), tx, "R26", "ACK", tostring(cutoff)
             }, SEP))
         elseif action == "ACK" then
             local pending = recentSyncHandshake
@@ -3451,12 +3452,12 @@ local function HandlePayload(payload, senderID)
 
         if finalLeg and recentCutoff and recentCutoff > 0 then
             QueuePayload(sync.peerGameAccountID, table.concat({
-                "C", CleanField(EnsureLocalSessionToken()), tx, "R72", tostring(recentCutoff)
+                "C", CleanField(EnsureLocalSessionToken()), tx, "R26", tostring(recentCutoff)
             }, SEP))
             sync.syncing = false
             sync.activeSyncTx = nil
             activeRecentCutoffs[tx] = nil
-            Print("RECENT SYNC COMPLETE: last 72 hours exchanged. Older history retained.")
+            Print("RECENT SYNC COMPLETE: last 26 hours exchanged. Older history retained.")
             return
         end
 
@@ -3490,7 +3491,7 @@ local function HandlePayload(payload, senderID)
         return
     end
 
-    if kind == "C" and parts[4] == "R72" then
+    if kind == "C" and parts[4] == "R26" then
         local tx = tostring(parts[3] or "")
         local cutoff = tonumber(parts[5])
         if cutoff and activeRecentCutoffs[tx] == cutoff then
@@ -3509,7 +3510,7 @@ local function HandlePayload(payload, senderID)
                     TaliaaGankTracker:OnDHKHistoryUpdated()
                 end
             end
-            Print("RECENT SYNC COMPLETE: last 72 hours exchanged. Offline sync keeps full history.")
+            Print("RECENT SYNC COMPLETE: last 26 hours exchanged. Offline sync keeps full history.")
         end
         return
     end
